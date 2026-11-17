@@ -1,0 +1,207 @@
+<template>
+  <div>
+   <BasicTable @register="registerImagesTable" :rowSelection="rowSelection">
+     <!--插槽:table标题-->
+      <template #tableTitle >
+          <a-button v-if="productId" type="primary" v-auth="'goods:wms_product_images:add'" @click="handleAdd" preIcon="ant-design:plus-outlined"> 新增</a-button>
+<!--          <a-button  type="primary" v-auth="'goods:wms_product_images:exportXls'" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>
+          <j-upload-button type="primary" v-auth="'goods:wms_product_images:importExcel'" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>-->
+          <a-dropdown v-if="selectedRowKeys.length > 0">
+              <template #overlay>
+                <a-menu>
+                  <a-menu-item key="1" @click="batchHandleDelete">
+                    <Icon icon="ant-design:delete-outlined"></Icon>
+                    删除
+                  </a-menu-item>
+                </a-menu>
+              </template>
+              <a-button v-auth="'goods:wms_product_images:deleteBatch'">批量操作
+                <Icon icon="mdi:chevron-down"></Icon>
+              </a-button>
+        </a-dropdown>
+        <!-- 高级查询 -->
+<!--        <super-query :config="superQueryConfig" @search="handleSuperQuery" />-->
+      </template>
+       <!--操作栏-->
+      <template #action="{ record }">
+        <TableAction :actions="getTableAction(record)" />
+      </template>
+      <!--字段回显插槽-->
+      <template v-slot:bodyCell="{ column, record, index, text }">
+      </template>
+    </BasicTable>
+    <!-- 表单区域 -->
+    <WmsProductImagesModal @register="registerModal" @success="handleSuccess"></WmsProductImagesModal>
+  </div>
+</template>
+
+<script lang="ts" name="goods-wmsProductImagesTable" setup>
+  import {reactive, nextTick, onBeforeUnmount} from 'vue';
+  import {BasicTable, TableAction} from '/@/components/Table';
+  import {useModal} from '/@/components/Modal';
+  import { useListPage } from '/@/hooks/system/useListPage'
+  import WmsProductImagesModal from './WmsProductImagesModal.vue'
+  import {columns, searchFormSchema, superQuerySchema} from '../WmsProductImages.data';
+  import {list, deleteOne, batchDelete, getImportUrl,getExportUrl} from '../WmsProductImages.api';
+  const props = defineProps({ productId: { type: String, default: '' } });
+  const queryParam = reactive<any>(props.productId ? { productId: props.productId } : {});
+  let active = true;
+  onBeforeUnmount(() => { active = false; });
+  //注册model
+  const [registerModal, {openModal}] = useModal();
+  //注册table数据
+  const { prefixCls,tableContext,onExportXls,onImportXls } = useListPage({
+      tableProps:{
+           title: '商品图片表',
+           api: list,
+           immediate: false,
+           columns,
+           canResize:false,
+           formConfig: {
+              //labelWidth: 120,
+              schemas: searchFormSchema,
+              autoSubmitOnEnter:true,
+              showAdvancedButton:true,
+              fieldMapToNumber: [
+              ],
+              fieldMapToTime: [
+              ],
+            },
+           actionColumn: {
+               width: 120,
+               fixed:'right'
+            },
+            beforeFetch: (params) => {
+              return Object.assign(params, queryParam);
+            },
+      },
+       exportConfig: {
+            name:"商品图片表",
+            url: getExportUrl,
+            params: queryParam,
+          },
+          importConfig: {
+            url: getImportUrl,
+            success: handleSuccess
+          },
+  })
+
+  const [registerTable, {reload},{ rowSelection, selectedRowKeys, selectedRows }] = tableContext;
+
+  function registerImagesTable(instance, formInstance) {
+    registerTable(instance, formInstance);
+    // Each keyed child owns its useTable scope. Wait for its form to mount.
+    nextTick(() => {
+      if (active) void reload({ page: 1 });
+    });
+  }
+  // 高级查询配置
+  const superQueryConfig = reactive(superQuerySchema);
+
+  /**
+   * 高级查询事件
+   */
+  function handleSuperQuery(params) {
+    Object.keys(params).map((k) => {
+      queryParam[k] = params[k];
+    });
+    reload();
+  }
+   /**
+    * 新增事件
+    */
+  function handleAdd() {
+     openModal(true, {
+       productId: queryParam.productId,
+       isUpdate: false,
+       showFooter: true,
+     });
+  }
+   /**
+    * 编辑事件
+    */
+  function handleEdit(record: Recordable) {
+     openModal(true, {
+       record,
+       isUpdate: true,
+       showFooter: true,
+     });
+   }
+   /**
+    * 详情
+   */
+  function handleDetail(record: Recordable) {
+     openModal(true, {
+       record,
+       isUpdate: true,
+       showFooter: false,
+     });
+   }
+   /**
+    * 删除事件
+    */
+  async function handleDelete(record) {
+     await deleteOne({id: record.id}, handleSuccess);
+   }
+   /**
+    * 批量删除事件
+    */
+  async function batchHandleDelete() {
+     await batchDelete({ids: selectedRowKeys.value}, handleSuccess);
+   }
+   /**
+    * 成功回调
+    */
+  async function handleSuccess() {
+      selectedRowKeys.value = [];
+      selectedRows.value = [];
+      return reload();
+   }
+   /**
+      * 操作栏
+      */
+  function getTableAction(record){
+       return [
+         {
+           label: '编辑',
+           onClick: handleEdit.bind(null, record),
+         },
+         {
+           label: '删除',
+           popConfirm: {
+             title: '是否确认删除',
+             confirm: handleDelete.bind(null, record),
+             placement: 'topLeft',
+           }
+         }
+
+       ]
+   }
+     /**
+        * 下拉操作栏 暂时不用
+        */
+  function getDropDownAction(record){
+       return [
+         {
+           label: '详情',
+           onClick: handleDetail.bind(null, record),
+         }, {
+           label: '删除',
+           popConfirm: {
+             title: '是否确认删除',
+             confirm: handleDelete.bind(null, record),
+             placement: 'topLeft',
+           },
+           auth: 'goods:wms_product_images:delete'
+         }
+       ]
+   }
+
+
+</script>
+
+<style lang="less" scoped>
+  :deep(.ant-picker), :deep(.ant-input-number) {
+    width: 100%;
+  }
+</style>

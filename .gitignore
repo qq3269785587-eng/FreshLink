@@ -1,0 +1,26 @@
+# Machine-specific state and credentials
+/runtime/
+/logs/
+/work/
+/outputs/
+/archive/
+/resources/
+**/node_modules/
+**/target/
+**/dist/
+**/.cache/
+**/.idea/
+**/__pycache__/
+**/*.pyc
+**/.DS_Store
+**/.env.local
+**/.env.*.local
+**/mysql-local-credentials.txt
+**/*.log
+**/*.pid
+**/*.p12
+**/*.pfx
+**/*.jks
+# Raw historical database dumps are private; only reviewed db/team and db/fresh SQL belong here.
+/apps/backend/db/xingchenwms-*.sql
+

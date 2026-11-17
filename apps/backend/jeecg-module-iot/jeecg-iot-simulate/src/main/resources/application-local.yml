@@ -1,0 +1,31 @@
+server:
+  port: 18084
+device-infos:
+  brokerUri: tcp://127.0.0.1:1883
+  report-interval: 5
+  pubTopic: wms/iot/report
+  devices:
+  - deviceName: 1号空调
+    deviceCode: d02
+    enable: true
+    subTopic: wms/iot/report
+    samples-rule: back_and_forth
+    samples:
+    - temperature01: 22.3
+      humidity: 10
+    - temperature01: 21.3
+      humidity: 15
+    - temperature01: 21.3
+      humidity: 10
+influx:
+  url: http://127.0.0.1:8086/
+  token: ''
+  bucket: test01
+  org: mrt
+  username: root
+  password: ''
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379

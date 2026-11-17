@@ -1,0 +1,56 @@
+server:
+  port: 7008
+spring:
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  autoconfigure:
+    exclude:
+    - com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure
+    - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+  datasource:
+    druid:
+      stat-view-servlet:
+        enabled: true
+        loginUsername: admin
+        loginPassword: ''
+        allow: null
+      web-stat-filter:
+        enabled: true
+    dynamic:
+      druid:
+        initial-size: 5
+        min-idle: 5
+        maxActive: 1000
+        maxWait: 60000
+        timeBetweenEvictionRunsMillis: 60000
+        minEvictableIdleTimeMillis: 300000
+        testWhileIdle: true
+        testOnBorrow: false
+        testOnReturn: false
+        poolPreparedStatements: true
+        maxPoolPreparedStatementPerConnectionSize: 20
+        filters: stat,slf4j
+        stat:
+          merge-sql: true
+          slow-sql-millis: 5000
+      datasource:
+        master:
+          url: ${FRESHLINK_DB_URL:jdbc:mysql://127.0.0.1:3306/freshlink_team?characterEncoding=UTF-8&useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
+          username: ${FRESHLINK_DB_USERNAME:freshlink_app}
+          password: ''
+          driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    database: 0
+    host: 192.168.1.188
+    port: 6379
+    password: ''
+jeecg:
+  ai-rag:
+    embed-store:
+      host: localhost
+      port: 15432
+      database: postgres
+      user: postgres
+      password: ''
+      table: embeddings

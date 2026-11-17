@@ -1,0 +1,39 @@
+server:
+  port: 18082
+spring:
+  datasource:
+    url: ${FRESHLINK_DB_URL:jdbc:mysql://127.0.0.1:3306/freshlink_team?characterEncoding=UTF-8&useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai}
+    username: ${FRESHLINK_DB_USERNAME:freshlink_app}
+    password: ''
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: a3
+    password: ''
+    virtual-host: /a3
+    listener:
+      simple:
+        acknowledge-mode: manual
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+mybatis-plus:
+  mapper-locations: classpath*:org/jeecg/**/xml/*Mapper.xml
+  global-config:
+    banner: false
+    db-config:
+      id-type: ASSIGN_ID
+      table-underline: true
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    call-setters-on-nulls: true
+influx:
+  url: http://127.0.0.1:8086/
+  token: ''
+  bucket: test01
+  org: mrt
+  username: root
+  password: ''
