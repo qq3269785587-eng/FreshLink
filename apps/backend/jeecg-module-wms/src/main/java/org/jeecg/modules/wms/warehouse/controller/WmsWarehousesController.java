@@ -32,6 +32,7 @@ import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
@@ -73,7 +74,17 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+        String name = StringUtils.trimToNull(wmsWarehouses.getWarehouseName());
+        String attr = StringUtils.trimToNull(wmsWarehouses.getWarehouseAttr());
+        String status = StringUtils.trimToNull(wmsWarehouses.getStatus());
+        wmsWarehouses.setWarehouseName(null);
+        wmsWarehouses.setWarehouseAttr(null);
+        wmsWarehouses.setStatus(null);
         QueryWrapper<WmsWarehouses> queryWrapper = QueryGenerator.initQueryWrapper(wmsWarehouses, req.getParameterMap());
+        queryWrapper.apply(name != null, "LOCATE({0}, warehouse_name) > 0", name)
+                .eq(attr != null, "warehouse_attr", attr)
+                .eq(status != null, "status", status);
+        queryWrapper.orderByAsc("id");
 		Page<WmsWarehouses> page = new Page<WmsWarehouses>(pageNo, pageSize);
 		IPage<WmsWarehouses> pageList = wmsWarehousesService.page(page, queryWrapper);
 		return Result.OK(pageList);
@@ -135,9 +146,10 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 	@AutoLog(value = "仓库表-批量删除")
 	@Operation(summary="仓库表-批量删除")
 	@RequiresPermissions("warehouse:wms_warehouses:deleteBatch")
+	@Transactional(rollbackFor = Exception.class)
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-		this.wmsWarehousesService.removeByIds(Arrays.asList(ids.split(",")));
+		Arrays.stream(ids.split(",")).distinct().forEach(wmsWarehousesService::delete);
 		return Result.OK("批量删除成功!");
 	}
 
@@ -188,6 +200,7 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 	  */
 	 @AutoLog(value = "仓库-启用")
 	 @Operation(summary="仓库-启用")
+	 @RequiresPermissions("warehouse:wms_warehouses:edit")
 	 @RequestMapping(value = "/enable", method = {RequestMethod.PUT,RequestMethod.POST})
 	 public Result<?> enable(@RequestBody WmsWarehouses wmsWarehouses) {
 		 if(wmsWarehouses == null|| StringUtils.isEmpty(wmsWarehouses.getId() )){
@@ -201,6 +214,7 @@ public class WmsWarehousesController extends JeecgController<WmsWarehouses, IWms
 	  */
 	 @AutoLog(value = "仓库-禁用")
 	 @Operation(summary="仓库-禁用")
+	 @RequiresPermissions("warehouse:wms_warehouses:edit")
 	 @RequestMapping(value = "/disable", method = {RequestMethod.PUT,RequestMethod.POST})
 	 public Result<?> disable(@RequestBody WmsWarehouses wmsWarehouses) {
 		 if(wmsWarehouses == null|| StringUtils.isEmpty(wmsWarehouses.getId() )){

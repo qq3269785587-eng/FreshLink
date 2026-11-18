@@ -5,9 +5,9 @@
     <select id="queryList" resultType="org.jeecg.modules.wms.warehouse.entity.WmsStorageZones" parameterType="org.jeecg.modules.wms.warehouse.entity.WmsStorageZones">
         select a.*,
         b.warehouse_name
-        FROM  wms_storage_zones a,wms_warehouses b
-        WHERE
-        a.warehouse_id=b.id
+        FROM wms_storage_zones a
+        LEFT JOIN wms_warehouses b ON a.warehouse_id = b.id
+        WHERE 1 = 1
         <if test="warehouseName != null and warehouseName != ''">
             AND b.warehouse_name LIKE concat('%',#{warehouseName},'%')
         </if>
@@ -17,5 +17,6 @@
         <if test="warehouseId != null and warehouseId != ''">
             AND a.warehouse_id = #{warehouseId}
         </if>
+        ORDER BY a.zone_code, a.id
     </select>
 </mapper>
