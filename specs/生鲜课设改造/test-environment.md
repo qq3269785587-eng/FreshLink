@@ -1,6 +1,6 @@
 # 隔离测试启动与写入前核验
 
-适用：Harness 执行 P1 及后续阶段的迁移、接口或页面写入测试。工作目录为 `D:\Yuki\Codex\Project\FreshLink`。此文规定核验步骤，不代表接手时服务仍在运行。
+适用：原开发机执行 v2.1 的 D1/D2/D3/D4 迁移、接口或页面写入测试。团队克隆副本使用其 README、docs/团队本机开发指南.md 和 scripts/team/ 的实际配置，不能照搬本页固定库名与端口。工作目录为 `D:\Yuki\Codex\Project\FreshLink`。此文规定核验步骤，不代表接手时服务仍在运行。
 
 ## 固定目标
 
@@ -71,10 +71,14 @@ P0 的 `delivery.md`、`handoff.md`、`docs/state-map.md`、manifest 及截图�
 测试入口有默认 P0 路径，接手必须显式指定新目录，例如：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fresh.ps1 -EvidenceDirectory work\fresh-acceptance\P1\attempt-01\tests
-python .\scripts\Save-P0Snapshot.py work\fresh-baseline\p1-attempt-01-before
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fresh.ps1 -EvidenceDirectory work\fresh-acceptance\D2\attempt-01\tests
+python .\scripts\Save-P0Snapshot.py work\fresh-baseline\d2-attempt-01-before
 ```
 
 目录名只作示例：若已存在，选择下一个未占用编号，不覆盖。Save-P0Snapshot.py 虽沿用 P0 名称，但可接收新的快照路径并拒绝覆盖；它保存两仓差异/未跟踪文件及根脚本/规格。新增后续独立文档目录时须扩展归档范围或另附清单。
 
 `Get-P0DatabaseAudit.ps1`、`Finalize-P0Evidence.py` 等旧脚本含固定 P0 输出路径；`Invoke-P0BusinessProbe.ps1` 面向 P0 试验。它们不能直接作为 P1 证据生成器。后续阶段应提供可指定阶段/证据目录的入口，记录前后版本；保留原脚本及原证据。重建 dist/target 会改变产物 hash，阶段结束生成自己的 build manifest，不重写 P0 原清单。
+
+## v2.1 验证频率
+
+环境首次启动、切换数据库或替换运行构建后重新核验。环境未变化时复用已记录的核验，不为截图重复写入。小批次只跑受影响测试；完整构建和课堂演示链在 D4 对最终版本集中执行。旧 P0/P1 默认输出路径只作历史说明，所有新证据用 D1/D2/D3/D4 的新目录；保存现状可用完整 Git 提交加差异清单，未跟踪源码仍须覆盖。
