@@ -2,9 +2,9 @@
 
 正式题目：**面向连锁餐饮的生鲜食材仓储与配送管理系统**。
 
-本仓库是三人协作使用的完整源码基线，包含当前有效的前后端源码、业务规格、数据库结构、P1 迁移、脱敏演示资料和开发脚本。**P0、P1 已独立验收通过；P2 尚未开始。** 当前功能基线是基础资料与角色权限，后续完成入库批次、申领配货、配送签收、追溯看板和只读 AI。原出库分配仍有占位实现，不能把当前代码当作完整业务已经交付。
+本仓库是三人协作使用的完整源码基线，包含当前有效的前后端源码、业务规格、数据库结构、P1 迁移、脱敏演示资料和开发脚本。**P0、P1 已独立验收通过；v2.1 的 D1、D2、D3、D4 尚未实施。** 当前功能基线是基础资料与角色权限，后续先补齐基础模块，再完成生鲜入库效期、人工选批出库、简单配送和课堂演示。AI、申领审批、自动 FEFO、波次拣货及异常签收不在本次范围。原出库分配仍有占位实现，不能把当前代码当作完整业务已经交付。
 
-仓库地址：https://github.com/yukisuki7/FreshLink 。这是私有仓库，负责人需要先邀请两位开发同学。加入后可克隆、按下列步骤初始化各自环境，再从 `p1-accepted` 标签开始开发。
+公开仓库地址：https://github.com/yukisuki7/FreshLink 。同学可克隆并按下列步骤初始化环境，从包含 v2.1 规格的最新 main 开发；有写权限时推送本人分支，无写权限时 Fork 后向本仓库 main 提 PR。`p1-accepted` 是历史代码基线，不包含本次新规格。
 
 ## 三人分工
 
@@ -14,7 +14,7 @@
 | 开发 B | `apps/web`、页面、接口联调和浏览器验证 | 每个任务书小批次一个 PR，附实际操作证据 |
 | 项目负责人 | 接口合同确认、PR 审查、阶段验收与合并 | 前后端组合版本通过后才进入下一阶段 |
 
-两份任务书在 [docs/tasks](docs/tasks/)，各有 Word 与 Markdown。先由 A 提交当前阶段接口合同，B 确认后可在同一阶段并行。各自完成 P2-A 就可以提交本批 PR，不必等整阶段；整个 P2 完成后仍要做阶段验收。任务书中的“GitHub 尚未准备”和原本机双仓状态属于交接时背景，**当前仓库、分支和开工方式以本 README 为准**。
+两份任务书在 [docs/tasks](docs/tasks/)，各有 Word 与 Markdown。先由 A 提交当前阶段接口合同，B 确认后可在同一阶段并行。各自完成 D1 的独立任务即可提交 PR，不必等整阶段；D1/D2/D3 按影响面验证，D4 集中做最终组合版本验收。当前团队仓库为单仓库，环境和开工方式以本 README 及 v2.1 任务书为准。
 
 ## 克隆和配置
 
@@ -23,8 +23,9 @@
 ```powershell
 git clone -c core.longpaths=true https://github.com/yukisuki7/FreshLink.git
 cd FreshLink
-git switch -c feat/p2-a-backend p1-accepted
-# 前端同学使用 feat/p2-a-frontend 等自己的分支名
+git switch -c feat/a-d1-basics origin/main
+# 先确认 origin/main 已包含负责人同步的 v2.1 规格；不要从旧标签恢复文档
+# 前端同学使用 feat/b-d1-basics 等自己的分支名
 pwsh -NoProfile -File .\scripts\team\Setup-Team.ps1
 pwsh -NoProfile -File .\scripts\team\Initialize-TeamDatabase.ps1
 pwsh -NoProfile -File .\scripts\team\Install-TeamFrontend.ps1
@@ -40,7 +41,7 @@ Setup 会询问一个新的小写 `freshlink_*` 数据库名及本机应用账�
 pwsh -NoProfile -File .\scripts\team\Show-TeamDemoAccounts.ps1
 ```
 
-账号：`admin`（系统管理）、`fresh_hq`（总部）、`fresh_wh`（仓管）、`fresh_store_a` 和 `fresh_store_b`。门店账号分别绑定 A/B。密码各机随机生成。AI Key 可在 P6 本机配置，未配置不影响基础业务启动。
+账号：`admin`（系统管理）、`fresh_hq`（总部）、`fresh_wh`（仓管）、`fresh_store_a` 和 `fresh_store_b`。门店账号分别绑定 A/B。密码各机随机生成。本次课堂演示不要求 AI Key，AI 不作为必做功能。
 
 ## 启动和验证
 
@@ -54,7 +55,7 @@ pwsh -NoProfile -File .\scripts\team\Start-TeamFrontend.ps1
 默认前端 http://127.0.0.1:13102/ ，后端 http://127.0.0.1:18081/jeecg-boot ，Redis DB 14。使用 Setup 中记录的实际端口；它们与原开发机 P1 验收实例隔离。运行时关闭 Flyway 自动迁移与 Quartz 自动任务，数据库由明确列出的 SQL 初始化。
 
 ```powershell
-pwsh -NoProfile -File .\scripts\team\Test-Team.ps1 -EvidenceDirectory work\test-evidence\P2-A-first
+pwsh -NoProfile -File .\scripts\team\Test-Team.ps1 -EvidenceDirectory work\test-evidence\D1-first
 ```
 
 这会真正运行 fresh 白名单测试。默认 Maven `package` 跳过测试，不能只凭构建成功判定业务通过。当前有可比较的全量类型存量错误；后续不得新增诊断，也不能把存量错误基线说成全量类型通过。
@@ -65,9 +66,9 @@ pwsh -NoProfile -File .\scripts\team\Test-Team.ps1 -EvidenceDirectory work\test-
 
 从负责人确认的基线开个人分支，逐个暂存本人修改的文件，commit 后 push 本人分支并创建 PR。PR 模板会要求批次、接口合同、配套前后端 SHA、真实命令/测试数、脱敏证据及回退方式。开发者负责先完成自测；负责人审查通过后继续下一批。已有批次合并后，从最新 `main` 开下一批分支。
 
-阶段规则以 [specs/生鲜课设改造/README.md](specs/生鲜课设改造/README.md)、`mission.md`、`state-contract.md` 和 `validation.md` 为准。历史规格中的 `D:\Yuki\...`、固定测试库及双 Git 仓库描述是原机证据背景；本克隆副本的实际工作根是此 README 所在目录，本机配置以团队入口为准。业务边界和验收断言保持原合同，不能借目录适配删减。
+阶段规则以 [specs/生鲜课设改造/README.md](specs/生鲜课设改造/README.md)、`mission.md`、`state-contract.md` 和 `validation.md` 为准。历史规格中的 `D:\Yuki\...`、固定测试库及双 Git 仓库描述是原机证据背景；本克隆副本的实际工作根是此 README 所在目录，本机配置以团队入口为准。当前业务边界和验收以 v2.1 为准；旧 P2～P7 规则只作历史。确认出库扣库存并生成待配送单，后续配送状态不再扣库。
 
-本机验收材料放 `work/`，不上传原始密码、Token、用户数据或完整私有快照；需要共享的脱敏摘要放 `docs/acceptance/`。历史 P1 验收摘要已保留，原机完整证据没有上传。导出后的配置脱敏与初始化另行验证，不把它称为 P2 验收。
+本机验收材料放 `work/`，不上传原始密码、Token、用户数据或完整私有快照；需要共享的脱敏摘要放 `docs/acceptance/`。历史 P1 验收摘要已保留，原机完整证据没有上传。导出后的配置脱敏与初始化另行验证，不把它称为 D1/D2/D3/D4 验收。
 
 ## 目录和来源
 
@@ -75,7 +76,7 @@ pwsh -NoProfile -File .\scripts\team\Test-Team.ps1 -EvidenceDirectory work\test-
 apps/backend/       Java 后端及 db/team、db/fresh 数据库脚本
 apps/web/           Vue 前端及 pnpm 锁文件
 scripts/team/       新克隆环境的初始化、构建、启动和测试入口
-specs/              业务合同、P2～P7 计划与验收标准
+specs/              v2.1 基础补全与业务合同、D1/D2/D3/D4 计划与验收标准
 docs/tasks/         两位开发同学的独立任务书
 docs/acceptance/    可分享的验收摘要
 runtime/            各人本机配置和缓存，Git 忽略
@@ -83,3 +84,7 @@ work/               各人自测证据，Git 忽略
 ```
 
 上游许可与来源见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本仓库保留原许可证，不包含原仓库 `.git` 历史、原始数据库、缓存、JAR 或前端构建产物。
+
+## v2.1 开工条件
+
+先由负责人合并 `docs/classroom-v2.1` 文档 PR，再从含 v2.1 规格的最新 `main` 开 D1 分支。D1 基础补全是必做阶段，P0/P1 通过不代表所有旧模块已经完整；D1～D4 当前均待实施。A、B 每阶段各自完成并自测后提交、推送本人分支并开 PR，由用户审查合并。
