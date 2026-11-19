@@ -33,7 +33,7 @@ public class FreshStoreAccessInterceptor implements HandlerInterceptor {
             return true;
         }
         if (accessService.isStoreUser()) {
-            if (isStoreAllowed(path)) {
+            if (isStoreAllowed(path) || isDeliveryRead(request, path)) {
                 return true;
             }
             reject(response, "门店账号无权访问该功能，仅可查看本店资料");
@@ -52,6 +52,11 @@ public class FreshStoreAccessInterceptor implements HandlerInterceptor {
             return false;
         }
         return true;
+    }
+
+    private boolean isDeliveryRead(HttpServletRequest request, String path) {
+        return "GET".equals(request.getMethod())
+                && (path.equals("/fresh/deliveries") || path.matches("/fresh/deliveries/[^/]+"));
     }
 
     private boolean isStoreAllowed(String path) {

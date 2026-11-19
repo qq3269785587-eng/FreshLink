@@ -28,7 +28,8 @@ public class FreshReferenceGuard {
     public void assertStoreDeletable(String storeId) {
         long references = countIfTable("fresh_user_store", "store_id", storeId)
                 + countIfTable("fresh_requisition", "store_id", storeId)
-                + countIfTable("fresh_delivery", "store_id", storeId);
+                + countIfTable("fresh_delivery", "store_id", storeId)
+                + countIfTable("fresh_outbound", "store_id", storeId);
         if (references > 0) {
             throw new JeecgBootException("门店已被用户或业务单据引用，不能删除；请改为禁用");
         }

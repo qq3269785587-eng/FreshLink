@@ -1,6 +1,6 @@
--- Isolated D2 probe setup only. The probe performs all positive stock movements via HTTP.
--- Apply once to an empty test schema named freshlink_d2_* after D2_00_inbound_lots.sql.
-SET @d2_is_isolated = DATABASE() REGEXP '^freshlink_d2_[A-Za-z0-9_]+$';
+-- Isolated D2/D3 probe setup only. The probe performs all positive stock movements via HTTP.
+-- Apply once to an empty test schema named freshlink_d2_* or freshlink_d3_* after D2_00_inbound_lots.sql.
+SET @d2_is_isolated = DATABASE() REGEXP '^freshlink_d[23]_[A-Za-z0-9_]+$';
 SET @business_day = DATE(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR));
 
 START TRANSACTION;

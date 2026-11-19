@@ -72,7 +72,8 @@ public class WmsInventoryServiceImpl extends ServiceImpl<WmsInventoryMapper, Wms
                     || WarehouseDictEnum.LOCATION_TYPE_PICKING.getCode().equals(inventory.getLocationType());
             Integer allocatedQuantity = inventory.getAllocatedQuantity();
             Integer stockQuantity = inventory.getStockQuantity();
-            boolean available = "1".equals(inventory.getIsSellable()) && formalLocation
+            boolean available = "1".equals(inventory.getIsSellable())
+                    && "1".equals(inventory.getLocationSellable()) && formalLocation
                     && "ACTIVE".equals(inventory.getProductStatus()) && remainingDays > 0
                     && inventory.getAvailableQuantity() != null && inventory.getAvailableQuantity() > 0
                     && stockQuantity != null && allocatedQuantity != null && allocatedQuantity >= 0

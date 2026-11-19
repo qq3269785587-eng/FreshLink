@@ -15,6 +15,7 @@
         d.location_code,
         d.location_type,
         d.location_category,
+        d.is_sellable AS location_sellable,
         e.zone_name,
         e.zone_type,
         e.storage_type AS location_storage_type,
