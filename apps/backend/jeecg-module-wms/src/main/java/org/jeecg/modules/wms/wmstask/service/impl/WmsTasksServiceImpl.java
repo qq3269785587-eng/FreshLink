@@ -25,6 +25,7 @@ import org.jeecg.modules.wms.wmstask.mapper.WmsTasksMapper;
 import org.jeecg.modules.wms.wmstask.service.IWmsTasksRecordsService;
 import org.jeecg.modules.wms.wmstask.service.IWmsTasksService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -59,6 +60,8 @@ public class WmsTasksServiceImpl extends ServiceImpl<WmsTasksMapper, WmsTasks> i
 
     @Autowired
     private WmsInventoryTransByPutway wmsInventoryExecByPutway;
+    @Autowired
+    private IWmsStorageLocationsService storageLocations;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -336,6 +339,13 @@ public class WmsTasksServiceImpl extends ServiceImpl<WmsTasksMapper, WmsTasks> i
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void putaway(WmsTasksRecords wmsTasksRecords) {
+        WmsTasks task = getById(wmsTasksRecords.getTaskId());
+        if (task == null || !WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode().equals(task.getTaskType())) {
+            throw new JeecgBootException("上架任务不存在");
+        }
+        String targetCode = storageLocations.requireActivePutawayTarget(
+                task.getTargetWarehouseId(), wmsTasksRecords.getTargetLocationCode());
+        wmsTasksRecords.setTargetLocationCode(targetCode);
         //执行任务
         WmsTasks wmsTasks = execute(wmsTasksRecords);
         //将完成数量更新至入库单明细

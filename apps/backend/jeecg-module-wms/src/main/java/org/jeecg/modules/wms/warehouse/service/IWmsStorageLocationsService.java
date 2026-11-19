@@ -11,4 +11,13 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IWmsStorageLocationsService extends IService<WmsStorageLocations> {
 
+    void createMaster(WmsStorageLocations record);
+
+    void updateMaster(WmsStorageLocations record);
+
+    void deleteMaster(String id);
+
+    void setEnabled(String id, boolean enabled);
+
+    String requireActivePutawayTarget(String warehouseId, String locationCode);
 }

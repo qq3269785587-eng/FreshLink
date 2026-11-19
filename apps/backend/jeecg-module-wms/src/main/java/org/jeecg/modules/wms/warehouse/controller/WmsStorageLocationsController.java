@@ -12,6 +12,7 @@ import java.net.URLDecoder;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.StringUtils;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.system.query.QueryGenerator;
 import org.jeecg.common.system.query.QueryRuleEnum;
@@ -35,6 +36,7 @@ import org.jeecgframework.poi.excel.entity.ImportParams;
 import org.jeecgframework.poi.excel.view.JeecgEntityExcelView;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
@@ -80,11 +82,21 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+        String code = StringUtils.trimToNull(wmsStorageLocations.getLocationCode());
+        String warehouseId = StringUtils.trimToNull(wmsStorageLocations.getWarehouseId());
+        String zoneId = StringUtils.trimToNull(wmsStorageLocations.getZoneId());
+        wmsStorageLocations.setLocationCode(null);
+        wmsStorageLocations.setWarehouseId(null);
+        wmsStorageLocations.setZoneId(null);
         QueryWrapper<WmsStorageLocations> queryWrapper = QueryGenerator.initQueryWrapper(wmsStorageLocations, req.getParameterMap());
+        queryWrapper.apply(code != null, "LOCATE({0}, location_code) > 0", code)
+                .eq(warehouseId != null, "warehouse_id", warehouseId)
+                .eq(zoneId != null, "zone_id", zoneId);
+        queryWrapper.orderByAsc("id");
 		Page<WmsStorageLocations> page = new Page<WmsStorageLocations>(pageNo, pageSize);
 		IPage<WmsStorageLocations> pageList = wmsStorageLocationsService.page(page, queryWrapper);
 		//如果结果集为空则直接返回
-		if(pageList.getTotal()==0){
+		if(pageList.getRecords().isEmpty()){
 			return Result.OK(pageList);
 		}
 		// 查询仓库id
@@ -124,15 +136,7 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 	@RequiresPermissions("warehouse:wms_storage_locations:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsStorageLocations wmsStorageLocations) {
-		//库区id
-		String zoneId = wmsStorageLocations.getZoneId();
-		//查询库区信息
-		WmsStorageZones storageZones = wmsStorageZonesService.getById(zoneId);
-		if(storageZones!=null){
-			//设置所属仓库
-			wmsStorageLocations.setWarehouseId(storageZones.getWarehouseId());
-		}
-		wmsStorageLocationsService.save(wmsStorageLocations);
+		wmsStorageLocationsService.createMaster(wmsStorageLocations);
 		return Result.OK("添加成功！");
 	}
 
@@ -147,15 +151,7 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 	@RequiresPermissions("warehouse:wms_storage_locations:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsStorageLocations wmsStorageLocations) {
-		//库区id
-		String zoneId = wmsStorageLocations.getZoneId();
-		//查询库区信息
-		WmsStorageZones storageZones = wmsStorageZonesService.getById(zoneId);
-		if(storageZones!=null){
-			//设置所属仓库
-			wmsStorageLocations.setWarehouseId(storageZones.getWarehouseId());
-		}
-		wmsStorageLocationsService.updateById(wmsStorageLocations);
+		wmsStorageLocationsService.updateMaster(wmsStorageLocations);
 		return Result.OK("编辑成功!");
 	}
 
@@ -170,7 +166,7 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 	@RequiresPermissions("warehouse:wms_storage_locations:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
-		wmsStorageLocationsService.removeById(id);
+		wmsStorageLocationsService.deleteMaster(id);
 		return Result.OK("删除成功!");
 	}
 
@@ -183,9 +179,10 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 	@AutoLog(value = "库位表-批量删除")
 	@Operation(summary="库位表-批量删除")
 	@RequiresPermissions("warehouse:wms_storage_locations:deleteBatch")
+	@Transactional(rollbackFor = Exception.class)
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-		this.wmsStorageLocationsService.removeByIds(Arrays.asList(ids.split(",")));
+		Arrays.stream(ids.split(",")).distinct().forEach(wmsStorageLocationsService::deleteMaster);
 		return Result.OK("批量删除成功!");
 	}
 
@@ -205,6 +202,20 @@ public class WmsStorageLocationsController extends JeecgController<WmsStorageLoc
 		}
 		return Result.OK(wmsStorageLocations);
 	}
+
+    @RequiresPermissions("warehouse:wms_storage_locations:edit")
+    @PutMapping("/enable")
+    public Result<String> enable(@RequestBody WmsStorageLocations location) {
+        wmsStorageLocationsService.setEnabled(location.getId(), true);
+        return Result.OK("启用成功");
+    }
+
+    @RequiresPermissions("warehouse:wms_storage_locations:edit")
+    @PutMapping("/disable")
+    public Result<String> disable(@RequestBody WmsStorageLocations location) {
+        wmsStorageLocationsService.setEnabled(location.getId(), false);
+        return Result.OK("禁用成功");
+    }
 
     /**
     * 导出excel

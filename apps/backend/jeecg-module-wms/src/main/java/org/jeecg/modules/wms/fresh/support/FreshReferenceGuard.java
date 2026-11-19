@@ -44,6 +44,43 @@ public class FreshReferenceGuard {
         }
     }
 
+    public void assertWarehouseUnreferenced(String id, String code) {
+        if (countIfTable("wms_storage_zones", "warehouse_id", id)
+                + countIfTable("wms_storage_locations", "warehouse_id", id)
+                + countIfTable("wms_inventory", "warehouse_id", id)
+                + countIfTable("wms_stock_in_orders", "warehouse_id", id)
+                + countIfTable("wms_out_orders", "warehouse_id", id)
+                + countIfTable("wms_tasks", "target_warehouse_id", id)
+                + countIfTable("wms_tasks", "source_warehouse_id", id)
+                + countIfTable("wms_tasks_records", "target_warehouse_id", id)
+                + countIfTable("wms_tasks_records", "source_warehouse_id", id)
+                + countIfTable("wms_wave_master", "warehouse_id", id)
+                + countIfTable("wms_iot_device", "warehouse_code", code) > 0) {
+            throw new JeecgBootException("仓库已被库区、储位或业务数据引用");
+        }
+    }
+
+    public void assertZoneUnreferenced(String id) {
+        if (countIfTable("wms_storage_locations", "zone_id", id)
+                + countIfTable("wms_wave_master", "zone_id", id) > 0) {
+            throw new JeecgBootException("库区已被储位或业务单据引用");
+        }
+    }
+
+    public void assertLocationUnreferenced(String code) {
+        if (countIfTable("wms_inventory", "location_code", code)
+                + countIfTable("wms_inventory_trans", "location_code", code)
+                + countIfTable("wms_out_orders_allocation", "location_code", code)
+                + countIfTable("wms_wave_sku_summary", "location_code", code)
+                + countIfTable("wms_shortage_registration", "source_location_code", code)
+                + countIfTable("wms_tasks", "source_location_code", code)
+                + countIfTable("wms_tasks", "target_location_code", code)
+                + countIfTable("wms_tasks_records", "source_location_code", code)
+                + countIfTable("wms_tasks_records", "target_location_code", code) > 0) {
+            throw new JeecgBootException("储位已被库存或业务单据引用");
+        }
+    }
+
     public void assertSupplierCodeUnique(String code, String excludeId) {
         long count = countByCode("fresh_supplier", "supplier_code", code, excludeId);
         if (count > 0) {

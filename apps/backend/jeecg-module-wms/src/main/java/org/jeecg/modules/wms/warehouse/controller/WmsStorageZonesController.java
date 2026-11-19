@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jeecg.modules.wms.warehouse.service.IWmsWarehousesService;
 import org.jeecg.common.system.base.controller.JeecgController;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 import io.swagger.v3.oas.annotations.Operation;
@@ -97,7 +98,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	@RequiresPermissions("warehouse:wms_storage_zones:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsStorageZones wmsStorageZones) {
-		wmsStorageZonesService.save(wmsStorageZones);
+		wmsStorageZonesService.createMaster(wmsStorageZones);
 		return Result.OK("添加成功！");
 	}
 
@@ -112,7 +113,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	@RequiresPermissions("warehouse:wms_storage_zones:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsStorageZones wmsStorageZones) {
-		wmsStorageZonesService.updateById(wmsStorageZones);
+		wmsStorageZonesService.updateMaster(wmsStorageZones);
 		return Result.OK("编辑成功!");
 	}
 
@@ -127,7 +128,7 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	@RequiresPermissions("warehouse:wms_storage_zones:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
-		wmsStorageZonesService.removeById(id);
+		wmsStorageZonesService.deleteMaster(id);
 		return Result.OK("删除成功!");
 	}
 
@@ -140,9 +141,10 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 	@AutoLog(value = "库区表-批量删除")
 	@Operation(summary="库区表-批量删除")
 	@RequiresPermissions("warehouse:wms_storage_zones:deleteBatch")
+	@Transactional(rollbackFor = Exception.class)
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-		this.wmsStorageZonesService.removeByIds(Arrays.asList(ids.split(",")));
+		Arrays.stream(ids.split(",")).distinct().forEach(wmsStorageZonesService::deleteMaster);
 		return Result.OK("批量删除成功!");
 	}
 
@@ -162,6 +164,13 @@ public class WmsStorageZonesController extends JeecgController<WmsStorageZones, 
 		}
 		return Result.OK(wmsStorageZones);
 	}
+
+    @RequiresPermissions("warehouse:wms_storage_zones:edit")
+    @PutMapping("/disable")
+    public Result<String> disable(@RequestBody WmsStorageZones zone) {
+        wmsStorageZonesService.disable(zone.getId());
+        return Result.OK("禁用成功");
+    }
 
     /**
     * 导出excel

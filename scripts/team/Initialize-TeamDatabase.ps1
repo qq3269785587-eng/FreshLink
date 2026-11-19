@@ -91,7 +91,8 @@ try {
         'apps/backend/db/team/01_framework_seed.sql',
         'apps/backend/db/fresh/P1_00_schema.sql',
         'apps/backend/db/fresh/P1_10_menu_role_dict.sql',
-        'apps/backend/db/fresh/P1_20_demo_data.sql'
+        'apps/backend/db/fresh/P1_20_demo_data.sql',
+        'apps/backend/db/fresh/D1_00_warehouse_codes.sql'
     )
     foreach ($file in $files) { Import-MySqlFile $file }
 
