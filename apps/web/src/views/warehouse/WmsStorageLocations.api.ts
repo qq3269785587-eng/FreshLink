@@ -11,6 +11,8 @@ enum Api {
   deleteBatch = '/warehouse/wmsStorageLocations/deleteBatch',
   importExcel = '/warehouse/wmsStorageLocations/importExcel',
   exportXls = '/warehouse/wmsStorageLocations/exportXls',
+  enable = '/warehouse/wmsStorageLocations/enable',
+  disable = '/warehouse/wmsStorageLocations/disable',
 }
 /**
  * 导出api
@@ -27,6 +29,31 @@ export const getImportUrl = Api.importExcel;
  */
 export const list = (params) =>
   defHttp.get({url: Api.list, params});
+
+export const setLocationEnabled = (id: string, enabled: boolean) =>
+  defHttp.put({ url: enabled ? Api.enable : Api.disable, data: { id } });
+
+interface PutawayLocation {
+  locationCode: string;
+  status: string;
+  warehouse?: { status: string };
+  storageZones?: { status: string };
+}
+
+export async function listPutawayTargets({ warehouseId }: { warehouseId?: string } = {}) {
+  if (!warehouseId) return [];
+  const pageSize = 100;
+  const targets: PutawayLocation[] = [];
+  for (let pageNo = 1; ; pageNo++) {
+    const { records, total } = await list({ warehouseId, status: 'ACTIVE', pageNo, pageSize });
+    targets.push(
+      ...records.filter((row: PutawayLocation) =>
+        row.status === 'ACTIVE' && row.warehouse?.status === 'ACTIVE' && row.storageZones?.status === 'ACTIVE',
+      ),
+    );
+    if (!records.length || pageNo * pageSize >= total) return targets;
+  }
+}
 /**
  * 拣货储位列表接口
  * @param params

@@ -52,7 +52,7 @@
   import { useListPage } from '/@/hooks/system/useListPage';
   import WmsStorageLocationsModal from './components/WmsStorageLocationsModal.vue';
   import { columns, searchFormSchema, superQuerySchema } from './WmsStorageLocations.data';
-  import { list, deleteOne, batchDelete, getImportUrl, getExportUrl } from './WmsStorageLocations.api';
+  import { list, deleteOne, batchDelete, getImportUrl, getExportUrl, setLocationEnabled } from './WmsStorageLocations.api';
   import { downloadFile } from '/@/utils/common/renderUtils';
   import { useUserStore } from '/@/store/modules/user';
   const queryParam = reactive<any>({});
@@ -71,6 +71,7 @@
         //labelWidth: 120,
         schemas: searchFormSchema,
         autoSubmitOnEnter: true,
+        submitOnReset: true,
         showAdvancedButton: true,
         fieldMapToNumber: [],
         fieldMapToTime: [],
@@ -159,11 +160,24 @@
    * 操作栏
    */
   function getTableAction(record) {
+    const enable = record.status !== 'ACTIVE';
     return [
       {
         label: '编辑',
         onClick: handleEdit.bind(null, record),
         auth: 'warehouse:wms_storage_locations:edit',
+      },
+      {
+        label: enable ? '启用' : '禁用',
+        auth: 'warehouse:wms_storage_locations:edit',
+        ifShow: ['CREATED', 'ACTIVE', 'INACTIVE'].includes(record.status),
+        popConfirm: {
+          title: enable ? '确认启用该储位？' : '确认禁用该储位？禁用后不能用于新上架。',
+          confirm: async () => {
+            await setLocationEnabled(record.id, enable);
+            handleSuccess();
+          },
+        },
       },
     ];
   }

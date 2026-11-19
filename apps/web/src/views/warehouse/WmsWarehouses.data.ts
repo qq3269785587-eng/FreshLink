@@ -31,6 +31,19 @@ export const columns: BasicColumn[] = [
 ];
 //查询数据
 export const searchFormSchema: FormSchema[] = [
+  { label: '仓库名称', field: 'warehouseName', component: 'Input' },
+  {
+    label: '仓库属性',
+    field: 'warehouseAttr',
+    component: 'JDictSelectTag',
+    componentProps: { dictCode: 'warehouse_attr' },
+  },
+  {
+    label: '仓库状态',
+    field: 'status',
+    component: 'JDictSelectTag',
+    componentProps: { dictCode: 'wms_status' },
+  },
 ];
 //表单数据
 export const formSchema: FormSchema[] = [
@@ -70,6 +83,7 @@ export const formSchema: FormSchema[] = [
   {
     label: '状态',
     field: 'status',
+    defaultValue: 'CREATED',
     component: 'JDictSelectTag',
     componentProps:{
       dictCode:"wms_status",

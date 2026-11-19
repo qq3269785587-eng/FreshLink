@@ -129,7 +129,7 @@ export const formSchema: FormSchema[] = [
      },
     dynamicRules: ({model,schema}) => {
           return [
-                 { required: true, message: '请输入状态: 0-禁用, 1-启用!'},
+                 { required: true, message: '请选择状态!'},
           ];
      },
   },

@@ -62,6 +62,7 @@
               //labelWidth: 120,
               schemas: searchFormSchema,
               autoSubmitOnEnter:true,
+              submitOnReset:true,
               showAdvancedButton:true,
               fieldMapToNumber: [
               ],
@@ -176,12 +177,15 @@
           {
             label: '启用',
             onClick: handleEnable.bind(null, record),
-            auth: 'warehouse:wms_warehouses:edit'
+            auth: 'warehouse:wms_warehouses:edit',
+            ifShow: record.status === 'CREATED' || record.status === 'INACTIVE',
           },
          //禁用
           {
             label: '禁用',
             onClick: handleDisable.bind(null, record),
+            auth: 'warehouse:wms_warehouses:edit',
+            ifShow: record.status === 'ACTIVE',
           }
        ]
    }

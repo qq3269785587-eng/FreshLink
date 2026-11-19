@@ -11,6 +11,7 @@ enum Api {
   deleteBatch = '/warehouse/wmsStorageZones/deleteBatch',
   importExcel = '/warehouse/wmsStorageZones/importExcel',
   exportXls = '/warehouse/wmsStorageZones/exportXls',
+  disable = '/warehouse/wmsStorageZones/disable',
 }
 /**
  * 导出api
@@ -27,6 +28,8 @@ export const getImportUrl = Api.importExcel;
  */
 export const list = (params) =>
   defHttp.get({url: Api.list, params});
+
+export const disableZone = (id: string) => defHttp.put({ url: Api.disable, data: { id } });
 
 /**
  * 删除单个

@@ -4,7 +4,7 @@ import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import { getWeekMonthQuarterYear } from '/@/utils';
 import {duplicateCheckDelay} from "@/views/system/user/user.api";
-import {list, list as warehouseList} from "@/views/warehouse/WmsWarehouses.api";
+import {list as warehouseList} from "@/views/warehouse/WmsWarehouses.api";
 import {list as storageZones} from "@/views/warehouse/WmsStorageZones.api";
 //列表数据
 export const columns: BasicColumn[] = [
@@ -112,19 +112,37 @@ export const columns: BasicColumn[] = [
 ];
 //查询数据
 export const searchFormSchema: FormSchema[] = [
-  //所属仓库
-   {
-     label: '所属仓库',
-     field: 'warehouseId',
-     component: 'ApiSelect',
-     componentProps: {
-       api: warehouseList,
-       resultField: 'records',
-       labelField: 'warehouseName',
-       valueField: 'id',
-       placeholder: '所属仓库',
-     },
-   }
+  { label: '库位编码', field: 'locationCode', component: 'Input' },
+  {
+    label: '所属仓库',
+    field: 'warehouseId',
+    component: 'ApiSelect',
+    componentProps: ({ formModel }) => ({
+      api: warehouseList,
+      immediate: false,
+      pageConfig: { isPage: true },
+      labelField: 'warehouseName',
+      valueField: 'id',
+      onChange: (warehouseId?: string) => {
+        if (warehouseId !== formModel.warehouseId) formModel.zoneId = undefined;
+      },
+    }),
+  },
+  {
+    label: '所属库区',
+    field: 'zoneId',
+    component: 'ApiSelect',
+    componentProps: ({ formModel }) => ({
+      // Restart option pagination when the warehouse changes.
+      key: formModel.warehouseId ?? 'all-zones',
+      api: storageZones,
+      immediate: false,
+      params: formModel.warehouseId ? { warehouseId: formModel.warehouseId } : {},
+      pageConfig: { isPage: true },
+      labelField: 'zoneName',
+      valueField: 'id',
+    }),
+  },
 ];
 //表单数据
 export const formSchema: FormSchema[] = [
@@ -174,7 +192,7 @@ export const formSchema: FormSchema[] = [
      },
     dynamicRules: ({model,schema}) => {
           return [
-                 { required: true, message: '请输入状态: 0-禁用, 1-启用!'},
+                 { required: true, message: '请选择状态!'},
           ];
      },
   },
@@ -240,6 +258,7 @@ export const formSchema: FormSchema[] = [
       options: [], // defalut []
       placeholder: '所属库区',
     },
+    rules: [{ required: true, message: '请选择所属库区!' }],
   },
   // {
   //   label: '所属库区',
