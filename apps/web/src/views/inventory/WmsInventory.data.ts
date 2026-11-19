@@ -3,6 +3,9 @@ import {FormSchema} from '/@/components/Table';
 import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import { getWeekMonthQuarterYear } from '/@/utils';
+import { h } from 'vue';
+import { Tag } from 'ant-design-vue';
+import { getExpiryPresentation, getInventoryBlockReason } from './inventoryExpiry';
 //列表数据
 export const columns: BasicColumn[] = [
   //仓库名称
@@ -33,6 +36,10 @@ export const columns: BasicColumn[] = [
     align:"center",
     dataIndex: 'productName'
    },
+  { title: '规格', align: 'center', dataIndex: 'productSpec' },
+  { title: '单位', align: 'center', dataIndex: 'unit' },
+  { title: '供应商', align: 'center', dataIndex: 'supplierName' },
+  { title: '来源入库单', align: 'center', dataIndex: 'inboundOrderNumber' },
    {
     title: '储位编码',
     align:"center",
@@ -43,13 +50,24 @@ export const columns: BasicColumn[] = [
     align:"center",
     dataIndex: 'batchNumber'
   },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
   {
-    title: '保质期到期日',
+    title: '到期日期',
     align:"center",
     dataIndex: 'expiryDate',
     customRender:({text}) =>{
       text = !text ? "" : (text.length > 10 ? text.substr(0,10) : text);
       return text;
+    },
+  },
+  { title: '剩余天数', align: 'center', dataIndex: 'remainingDays' },
+  {
+    title: '效期状态',
+    align: 'center',
+    dataIndex: 'expiryStatus',
+    customRender: ({ text }) => {
+      const { text: label, color } = getExpiryPresentation(text);
+      return h(Tag, { color }, () => label);
     },
   },
   {
@@ -63,9 +81,17 @@ export const columns: BasicColumn[] = [
     dataIndex: 'allocatedQuantity'
   },
   {
-    title: '可用数量',
+    title: '账面未分配',
     align:"center",
     dataIndex: 'availableQuantity'
+  },
+  { title: '可出库数量', align: 'center', dataIndex: 'eligibleQuantity' },
+  {
+    title: '不可出库原因',
+    align: 'center',
+    dataIndex: 'eligibleQuantity',
+    key: 'inventoryBlockReason',
+    customRender: ({ record }) => getInventoryBlockReason(record),
   },
   {
     title: '是否可售',
@@ -115,6 +141,12 @@ export const columns: BasicColumn[] = [
 ];
 //查询数据
 export const searchFormSchema: FormSchema[] = [
+  {
+    label: '仓库名称',
+    field: 'warehouseName',
+    component: 'Input',
+    colProps: { span: 6 },
+  },
   //货主编码
   {
     label: '货主编码',
@@ -163,6 +195,16 @@ export const searchFormSchema: FormSchema[] = [
 ];
 //表单数据
 export const formSchema: FormSchema[] = [
+  { label: '食材', field: 'productName', component: 'Input' },
+  { label: '规格', field: 'productSpec', component: 'Input' },
+  { label: '单位', field: 'unit', component: 'Input' },
+  { label: '供应商', field: 'supplierName', component: 'Input' },
+  { label: '来源入库单', field: 'inboundOrderNumber', component: 'Input' },
+  { label: '仓库', field: 'warehouseName', component: 'Input' },
+  { label: '效期状态', field: 'expiryStatusLabel', component: 'Input' },
+  { label: '剩余天数', field: 'remainingDays', component: 'InputNumber' },
+  { label: '可出库数量', field: 'eligibleQuantity', component: 'InputNumber' },
+  { label: '不可出库原因', field: 'inventoryBlockReason', component: 'Input' },
   {
     label: '商品id',
     field: 'productId',
@@ -204,7 +246,7 @@ export const formSchema: FormSchema[] = [
     component: 'InputNumber',
   },
   {
-    label: '可用数量',
+    label: '账面未分配',
     field: 'availableQuantity',
     component: 'Input',
   },
@@ -259,7 +301,7 @@ export const superQuerySchema = {
   containerCode: {title: '容器编码',order: 3,view: 'text', type: 'string',},
   stockQuantity: {title: '在库数量',order: 4,view: 'number', type: 'number',},
   allocatedQuantity: {title: '分配数量',order: 5,view: 'number', type: 'number',},
-  availableQuantity: {title: '可用数量',order: 6,view: 'text', type: 'string',},
+  availableQuantity: {title: '账面未分配',order: 6,view: 'text', type: 'string',},
   batchNumber: {title: '批号 ',order: 7,view: 'text', type: 'string',},
   stockInTime: {title: '入库时间',order: 8,view: 'datetime', type: 'string',},
   productionDate: {title: '生产日期',order: 9,view: 'date', type: 'string',},

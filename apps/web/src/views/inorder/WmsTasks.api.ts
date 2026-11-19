@@ -1,7 +1,9 @@
 import { defHttp } from '/@/utils/http/axios';
 import { useMessage } from '/@/hooks/web/useMessage';
+import { listPutawayTargets } from '/@/views/warehouse/WmsStorageLocations.api';
+import { type InboundActionRequest, requireInboundSuccess } from './inboundRequest';
 
-const { createConfirm } = useMessage();
+const { createConfirm, createMessage } = useMessage();
 
 enum Api {
   putawaylist = '/inorder/putawayTasks/list',
@@ -63,23 +65,32 @@ export const batchDelete = (params, handleSuccess) => {
  * 收货
  * @param params
  */
-export const receive = (params) => {
-  const url = Api.receive;
-  return defHttp.post({ url: url, params });
-};
+export const receive = (data: InboundActionRequest) =>
+  defHttp.post({ url: Api.receive, data }, { isTransformResponse: false }).then(requireInboundSuccess);
 /**
  * 上架
  * @param params
  */
-export const putaway = (params) => {
-  const url = Api.putaway;
-  return defHttp.post({ url: url, params });
-};
+export const putaway = (data: InboundActionRequest) =>
+  defHttp.post({ url: Api.putaway, data }, { isTransformResponse: false }).then(requireInboundSuccess);
+
+export async function listReceivingTargets(params: { warehouseId?: string }) {
+  const locations = await listPutawayTargets(params);
+  return locations.filter((location) => location.locationType === 'RECEIVING_LOC');
+}
+
+export async function listFormalPutawayTargets(params: { warehouseId?: string }) {
+  const locations = await listPutawayTargets(params);
+  return locations.filter(
+    (location) => location.isSellable === '1' && ['STORAGE_LOC', 'PICKING_LOC'].includes(location.locationType),
+  );
+}
 /**
  * 保存或者更新
  * @param params
  */
-export const saveOrUpdate = (params, isUpdate) => {
-  const url = isUpdate ? Api.edit : Api.save;
-  return defHttp.post({ url: url, params });
-};
+export async function saveOrUpdate(_params: unknown, _isUpdate: boolean) {
+  const message = '请通过收货或上架任务办理';
+  createMessage.error(message);
+  throw new Error(message);
+}

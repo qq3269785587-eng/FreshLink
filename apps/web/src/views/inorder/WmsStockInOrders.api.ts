@@ -1,5 +1,8 @@
 import {defHttp} from '/@/utils/http/axios';
 import { useMessage } from "/@/hooks/web/useMessage";
+import { requireInboundSuccess } from './inboundRequest';
+import { normalizeInboundPlan } from './inboundValidation';
+import { list as listProducts } from '/@/views/goods/WmsProducts.api';
 
 const { createConfirm } = useMessage();
 
@@ -37,6 +40,36 @@ export const queryWmsStockInOrderItems = Api.wmsStockInOrderItemsList
  */
 export const list = (params) =>
   defHttp.get({url: Api.list, params});
+
+export interface InboundProductOption {
+  value: string;
+  label: string;
+  disabled: boolean;
+}
+
+interface InboundProduct {
+  id: string;
+  ownerId: string;
+  productName: string;
+  status: string;
+}
+
+export async function listInboundProductOptions(ownerId: string): Promise<InboundProductOption[]> {
+  if (!ownerId) return [];
+  const pageSize = 100;
+  const options: InboundProductOption[] = [];
+  for (let pageNo = 1; ; pageNo++) {
+    const { records, total } = await listProducts({ ownerId, pageNo, pageSize });
+    options.push(
+      ...records.filter((record: InboundProduct) => record.ownerId === ownerId).map((record: InboundProduct) => ({
+        value: record.id,
+        label: record.productName,
+        disabled: record.status !== 'ACTIVE',
+      })),
+    );
+    if (!records.length || pageNo * pageSize >= total) return options;
+  }
+}
 
 /**
  * 删除单个
@@ -95,10 +128,13 @@ export const batchDelete = (params, handleSuccess) => {
  * 保存或者更新
  * @param params
  */
-export const saveOrUpdate = (params, isUpdate) => {
-  let url = isUpdate ? Api.edit : Api.save;
-  return defHttp.post({url: url, params});
-}
+export const saveOrUpdate = async (params: Recordable, isUpdate: boolean) => {
+  const data = normalizeInboundPlan(params);
+  const response = isUpdate
+    ? await defHttp.put({ url: Api.edit, data }, { isTransformResponse: false })
+    : await defHttp.post({ url: Api.save, data }, { isTransformResponse: false });
+  return requireInboundSuccess(response);
+};
 /**
  * 保存或者更新
  * @param params

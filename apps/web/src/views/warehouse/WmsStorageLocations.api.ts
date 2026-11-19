@@ -35,6 +35,8 @@ export const setLocationEnabled = (id: string, enabled: boolean) =>
 
 interface PutawayLocation {
   locationCode: string;
+  locationType: string;
+  isSellable: string;
   status: string;
   warehouse?: { status: string };
   storageZones?: { status: string };

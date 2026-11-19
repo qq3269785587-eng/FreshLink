@@ -160,7 +160,8 @@
          {
            label: '上架',
            onClick: handleEdit.bind(null, record),
-           auth: 'inorder:putaway_task:addRecords'
+           auth: 'inorder:putaway_task:addRecords',
+           ifShow: !['COMPLETED', 'CANCELED'].includes(record.taskStatus),
          }
          // {
          //   label: '编辑',
