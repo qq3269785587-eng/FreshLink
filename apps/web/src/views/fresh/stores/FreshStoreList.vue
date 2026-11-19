@@ -23,18 +23,22 @@
       </template>
     </BasicTable>
     <FreshStoreModal @register="registerModal" @success="handleSuccess" />
+    <FreshDeliveryList v-if="route.path === '/fresh/my-store'" read-only />
   </div>
 </template>
 
 <script lang="ts" name="fresh-store" setup>
   import { reactive } from 'vue';
+  import { useRoute } from 'vue-router';
   import { BasicTable, TableAction } from '/@/components/Table';
   import { useModal } from '/@/components/Modal';
   import { useListPage } from '/@/hooks/system/useListPage';
   import FreshStoreModal from './components/FreshStoreModal.vue';
   import { columns, searchFormSchema } from './FreshStore.data';
   import { list, deleteOne, batchDelete } from './FreshStore.api';
+  import FreshDeliveryList from '../delivery/FreshDeliveryList.vue';
 
+  const route = useRoute();
   const queryParam = reactive<any>({});
   const [registerModal, { openModal }] = useModal();
   const { tableContext } = useListPage({

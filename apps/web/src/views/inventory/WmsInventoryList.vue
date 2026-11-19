@@ -33,6 +33,10 @@
   import {list, deleteOne, getImportUrl,getExportUrl} from './WmsInventory.api';
   import { downloadFile } from '/@/utils/common/renderUtils';
   import { useUserStore } from '/@/store/modules/user';
+  import { useRouter } from 'vue-router';
+  import { useFreshWorkflowAccess } from '../fresh/freshWorkflowAccess';
+  const router = useRouter();
+  const { canWrite } = useFreshWorkflowAccess();
   const queryParam = reactive<any>({});
   const checkedKeys = ref<Array<string | number>>([]);
   const userStore = useUserStore();
@@ -138,7 +142,12 @@
          {
            label: '详情',
            onClick: handleDetail.bind(null, record),
-         }
+         },
+         {
+           label: '出库记录',
+           ifShow: canWrite.value && !!record.stockBatchKey,
+           onClick: () => router.push({ path: '/outorder/wmsOutOrdersList', query: { stockBatchKey: record.stockBatchKey } }),
+         },
          // {
          //   label: '编辑',
          //   onClick: handleEdit.bind(null, record),
