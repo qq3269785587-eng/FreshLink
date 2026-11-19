@@ -4,7 +4,7 @@
     <select id="queryTaskList"
             parameterType="org.jeecg.modules.wms.wmstask.entity.WmsTasks"
             resultType="org.jeecg.modules.wms.wmstask.entity.WmsTasks">
-        select a.*,ww.warehouse_name ,b.product_name,wco.owner_name,wsio.order_number stock_in_order_number
+        select a.*,ww.warehouse_name ,b.product_name,wco.owner_name,wsio.order_number stock_in_order_number, wsio.supplier_id, wsioi.production_date
         from wms_tasks a
                  left join wms_warehouses ww on a.target_warehouse_id=ww.id
                  left join wms_products b on a.product_id = b.id

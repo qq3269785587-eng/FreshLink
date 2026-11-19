@@ -7,6 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jeecg.common.api.vo.Result;
+import org.jeecg.modules.wms.config.WarehouseDictEnum;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
+import org.jeecg.modules.wms.inorder.vo.FreshInboundAction;
 import org.jeecg.common.aspect.annotation.AutoLog;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
@@ -15,7 +18,6 @@ import org.jeecg.modules.wms.wmstask.service.IWmsTasksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 
 /**
 * @Description: 上架任务
@@ -31,6 +33,8 @@ public class PutawayTasksController {
 
     @Autowired
    private IWmsTasksService wmsTasksService;
+    @Autowired
+    private FreshAccessService access;
 
 //   @Autowired
 //   private IPutawayTasksService putawayTasksService;
@@ -44,7 +48,8 @@ public class PutawayTasksController {
                                   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
                                   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
                                   HttpServletRequest req) {
-       //todo 设置任务类型为收货任务
+       access.requireStaff();
+       wmsTasks.setTaskType(WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode());
        IPage<WmsTasks> wmsTasksIPage = wmsTasksService.list(wmsTasks, pageNo, pageSize);
        return Result.OK(wmsTasksIPage);
    }
@@ -54,7 +59,8 @@ public class PutawayTasksController {
                                   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
                                   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
                                   HttpServletRequest req) {
-       //todo 设置任务类型为收货任务
+       access.requireStaff();
+       wmsTasksRecords.setTaskType(WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode());
        IPage<WmsTasksRecords> records = wmsTasksRecordsService.pageList(wmsTasksRecords, pageNo, pageSize);
        return Result.OK(records);
    }
@@ -69,57 +75,10 @@ public class PutawayTasksController {
    @Operation(summary="上架")
    @RequiresPermissions("inorder:putaway_task:addRecords")
    @PostMapping(value = "/addRecords")
-   public Result<String> add(@RequestBody WmsTasksRecords wmsTasksRecords) {
-       String taskId = wmsTasksRecords.getId();
-       wmsTasksRecords.setTaskId(taskId);
-       wmsTasksRecords.setId(null);
-       wmsTasksService.putaway(wmsTasksRecords);
-       return Result.OK("添加成功！");
-   }
-
-   /**
-    *  编辑
-    *
-    * @param wmsTasks
-    * @return
-    */
-   @AutoLog(value = "任务表-编辑")
-   @Operation(summary="任务表-编辑")
-   @RequiresPermissions("wmstask:wms_tasks:edit")
-   @RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
-   public Result<String> edit(@RequestBody WmsTasks wmsTasks) {
-       wmsTasksService.updateById(wmsTasks);
-       return Result.OK("编辑成功!");
-   }
-
-   /**
-    *   通过id删除
-    *
-    * @param id
-    * @return
-    */
-   @AutoLog(value = "任务表-通过id删除")
-   @Operation(summary="任务表-通过id删除")
-   @RequiresPermissions("wmstask:wms_tasks:delete")
-   @DeleteMapping(value = "/delete")
-   public Result<String> delete(@RequestParam(name="id",required=true) String id) {
-       wmsTasksService.removeById(id);
-       return Result.OK("删除成功!");
-   }
-
-   /**
-    *  批量删除
-    *
-    * @param ids
-    * @return
-    */
-   @AutoLog(value = "任务表-批量删除")
-   @Operation(summary="任务表-批量删除")
-   @RequiresPermissions("wmstask:wms_tasks:deleteBatch")
-   @DeleteMapping(value = "/deleteBatch")
-   public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-       this.wmsTasksService.removeByIds(Arrays.asList(ids.split(",")));
-       return Result.OK("批量删除成功!");
+   public Result<String> add(@RequestBody FreshInboundAction action) {
+        access.requireStaff();
+        wmsTasksService.putaway(action.toRecord());
+        return Result.OK("添加成功！");
    }
 
    /**
@@ -132,8 +91,9 @@ public class PutawayTasksController {
    @Operation(summary="任务表-通过id查询")
    @GetMapping(value = "/queryById")
    public Result<WmsTasks> queryById(@RequestParam(name="id",required=true) String id) {
+       access.requireStaff();
        WmsTasks wmsTasks = wmsTasksService.getById(id);
-       if(wmsTasks==null) {
+       if (wmsTasks == null || !WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode().equals(wmsTasks.getTaskType())) {
            return Result.error("未找到对应数据");
        }
        return Result.OK(wmsTasks);

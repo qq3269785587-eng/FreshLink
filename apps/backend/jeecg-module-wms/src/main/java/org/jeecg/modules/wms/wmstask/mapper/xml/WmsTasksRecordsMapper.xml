@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="org.jeecg.modules.wms.wmstask.mapper.WmsTasksRecordsMapper">
     <select id="queryList" resultType="org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords" parameterType="org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords">
-        select a.*,ww.warehouse_name ,b.product_name,wco.owner_name,wsio.order_number stock_in_order_number
+        select a.*,ww.warehouse_name ,b.product_name,wco.owner_name,wsio.order_number stock_in_order_number, wsio.supplier_id, wsioi.production_date
         from wms_tasks_records a
         left join wms_warehouses ww on a.target_warehouse_id=ww.id
         left join wms_products b on a.product_id = b.id

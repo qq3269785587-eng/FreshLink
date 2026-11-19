@@ -183,4 +183,58 @@ public class WmsInventory implements Serializable {
     @Schema(description = "储区类型")
     @TableField(exist = false)
     private String zoneType;
+
+    /** Stable internal key for selecting a supplier-scoped fresh batch. */
+    @TableField(exist = false)
+    private String stockBatchKey;
+
+    @TableField(exist = false)
+    private String displayBatchNumber;
+
+    @TableField(exist = false)
+    private String supplierId;
+
+    @TableField(exist = false)
+    private String supplierName;
+
+    @TableField(exist = false)
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd")
+    private Date productionDate;
+
+    @TableField(exist = false)
+    private String expiryStatus;
+
+    @TableField(exist = false)
+    private Long remainingDays;
+
+    @TableField(exist = false)
+    private Integer eligibleQuantity;
+
+    @TableField(exist = false)
+    private Integer nearExpiryDays;
+
+    @TableField(exist = false)
+    @JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd")
+    private Date sourceExpiryDate;
+
+    @TableField(exist = false)
+    private String productStatus;
+
+    @TableField(exist = false)
+    private String inboundOrderItemId;
+
+    @TableField(exist = false)
+    private String inboundOrderId;
+
+    @TableField(exist = false)
+    private String inboundOrderNumber;
+
+    @TableField(exist = false)
+    private String productSpec;
+
+    @TableField(exist = false)
+    private String unit;
+
+    @TableField(exist = false)
+    private String locationStorageType;
 }

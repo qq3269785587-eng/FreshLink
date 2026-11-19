@@ -29,6 +29,7 @@ import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
 import org.jeecg.modules.wms.inorder.vo.WmsStockInOrdersPage;
 import org.jeecg.modules.wms.inorder.service.IWmsStockInOrdersService;
 import org.jeecg.modules.wms.inorder.service.IWmsStockInOrderItemsService;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -61,6 +62,8 @@ public class WmsStockInOrdersController {
 	private IWmsStockInOrdersService wmsStockInOrdersService;
 	@Autowired
 	private IWmsStockInOrderItemsService wmsStockInOrderItemsService;
+	@Autowired
+	private FreshAccessService freshAccessService;
 
 	/**
 	 * 分页列表查询
@@ -78,6 +81,7 @@ public class WmsStockInOrdersController {
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+		freshAccessService.requireStaff();
         QueryWrapper<WmsStockInOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsStockInOrders, req.getParameterMap());
 		Page<WmsStockInOrders> page = new Page<WmsStockInOrders>(pageNo, pageSize);
 		IPage<WmsStockInOrders> pageList = wmsStockInOrdersService.page(page, queryWrapper);
@@ -95,10 +99,10 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		freshAccessService.requireStaff();
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
-		wmsStockInOrdersService.add(wmsStockInOrders);
-//		wmsStockInOrdersService.saveMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
+		wmsStockInOrdersService.saveMain(wmsStockInOrders, wmsStockInOrdersPage.getWmsStockInOrderItemsList());
 		return Result.OK("添加成功！");
 	}
 
@@ -113,6 +117,7 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		freshAccessService.requireStaff();
 		WmsStockInOrders wmsStockInOrders = new WmsStockInOrders();
 		BeanUtils.copyProperties(wmsStockInOrdersPage, wmsStockInOrders);
 		WmsStockInOrders wmsStockInOrdersEntity = wmsStockInOrdersService.getById(wmsStockInOrders.getId());
@@ -130,6 +135,7 @@ public class WmsStockInOrdersController {
 //	 @RequiresPermissions("inorder:wms_stock_in_orders:submitaudit")
 	 @PostMapping(value = "/submitAudit")
 	 public Result<String> submit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		 freshAccessService.requireStaff();
 		 wmsStockInOrdersService.submitAudit(wmsStockInOrdersPage);
 		 return Result.OK("提交成功！");
 	 }
@@ -144,6 +150,7 @@ public class WmsStockInOrdersController {
 	 @RequiresPermissions("inorder:wms_stock_in_orders:audit")
 	 @RequestMapping(value = "/audit", method = {RequestMethod.PUT,RequestMethod.POST})
 	 public Result<String> audit(@RequestBody WmsStockInOrdersPage wmsStockInOrdersPage) {
+		 freshAccessService.requireStaff();
 		 wmsStockInOrdersService.audit(wmsStockInOrdersPage);
 		 return Result.OK("审核完成!");
 	 }
@@ -158,6 +165,7 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
+		freshAccessService.requireStaff();
 		wmsStockInOrdersService.delMain(id);
 		return Result.OK("删除成功!");
 	}
@@ -173,6 +181,7 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:deleteBatch")
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
+		freshAccessService.requireStaff();
 		this.wmsStockInOrdersService.delBatchMain(Arrays.asList(ids.split(",")));
 		return Result.OK("批量删除成功！");
 	}
@@ -187,6 +196,7 @@ public class WmsStockInOrdersController {
 	@Operation(summary="入库单主表-通过id查询")
 	@GetMapping(value = "/queryById")
 	public Result<WmsStockInOrders> queryById(@RequestParam(name="id",required=true) String id) {
+		freshAccessService.requireStaff();
 		WmsStockInOrders wmsStockInOrders = wmsStockInOrdersService.getById(id);
 		if(wmsStockInOrders==null) {
 			return Result.error("未找到对应数据");
@@ -205,6 +215,7 @@ public class WmsStockInOrdersController {
 	@Operation(summary="入库单明细主表ID查询")
 	@GetMapping(value = "/queryWmsStockInOrderItemsByMainId")
 	public Result<List<WmsStockInOrderItems>> queryWmsStockInOrderItemsListByMainId(@RequestParam(name="id",required=true) String id) {
+		freshAccessService.requireStaff();
 		List<WmsStockInOrderItems> wmsStockInOrderItemsList = wmsStockInOrderItemsService.selectByMainId(id);
 		return Result.OK(wmsStockInOrderItemsList);
 	}
@@ -218,6 +229,7 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:exportXls")
     @RequestMapping(value = "/exportXls")
     public ModelAndView exportXls(HttpServletRequest request, WmsStockInOrders wmsStockInOrders) {
+	  freshAccessService.requireStaff();
       // Step.1 组装查询条件查询数据
       QueryWrapper<WmsStockInOrders> queryWrapper = QueryGenerator.initQueryWrapper(wmsStockInOrders, request.getParameterMap());
       LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
@@ -260,6 +272,7 @@ public class WmsStockInOrdersController {
     @RequiresPermissions("inorder:wms_stock_in_orders:importExcel")
     @RequestMapping(value = "/importExcel", method = RequestMethod.POST)
     public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
+      freshAccessService.requireStaff();
       MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
       Map<String, MultipartFile> fileMap = multipartRequest.getFileMap();
       for (Map.Entry<String, MultipartFile> entity : fileMap.entrySet()) {

@@ -12,21 +12,28 @@ import org.jeecg.modules.wms.inorder.mapper.WmsStockInOrdersMapper;
 import org.jeecg.modules.wms.inorder.service.IWmsStockInOrderItemsService;
 import org.jeecg.modules.wms.inorder.service.IWmsStockInOrdersService;
 import org.jeecg.modules.wms.inorder.vo.WmsStockInOrdersPage;
-import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import org.jeecg.modules.wms.fresh.support.FreshValidation;
 import java.util.Objects;
 import org.jeecg.modules.wms.goods.entity.WmsProducts;
 import org.jeecg.modules.wms.goods.service.IWmsProductsService;
+import org.jeecg.modules.wms.fresh.entity.FreshSupplier;
+import org.jeecg.modules.wms.fresh.service.IFreshSupplierService;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
-import java.util.stream.Collectors;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * @Description: 入库单主表
@@ -36,6 +43,7 @@ import java.util.stream.Collectors;
  */
 @Service
 public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMapper, WmsStockInOrders> implements IWmsStockInOrdersService {
+	private record InboundBatchKey(String productId, String batchNumber) { }
 
 	@Autowired
 	private WmsStockInOrdersMapper wmsStockInOrdersMapper;
@@ -45,6 +53,12 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	private RedisUtil redisUtil;
 	@Autowired
 	private IWmsProductsService productsService;
+	@Autowired
+	private IFreshSupplierService supplierService;
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
+	@Autowired
+	private FreshAccessService freshAccessService;
 
 	@Autowired
 	private IWmsStockInOrderItemsService stockInOrderItemsService;
@@ -58,6 +72,45 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 		wmsStockInOrders.setStatus(WarehouseDictEnum.INBOUND_INITIAL.getCode());
 		//入库单表插入一条记录
 		save(wmsStockInOrders);
+	}
+
+	@Override
+	public WmsStockInOrders lockById(String id) {
+		return getBaseMapper().selectOne(new LambdaQueryWrapper<WmsStockInOrders>()
+				.eq(WmsStockInOrders::getId, id).last("FOR UPDATE"));
+	}
+
+	@Override
+	public void requireReceivable(WmsStockInOrders order, WmsStockInOrderItems item) {
+		validatePlannedFacts(order, item);
+		LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+		if (item.getProductionDate().isAfter(today) || !item.getExpiryDate().isAfter(today)) {
+			throw new JeecgBootException("生产日期不得晚于收货日，到期日期须晚于收货日");
+		}
+	}
+
+	private void validatePlannedFacts(WmsStockInOrders order, WmsStockInOrderItems item) {
+		if (order == null || item == null) {
+			throw new JeecgBootException("入库单或明细不存在");
+		}
+		if (order.getSupplierId() == null || order.getSupplierId().isBlank()) {
+			throw new JeecgBootException("入库单缺少供应商，不能执行生鲜收货");
+		}
+		FreshSupplier supplier = supplierService.getById(order.getSupplierId());
+		if (supplier == null || !"ACTIVE".equals(supplier.getStatus())) {
+			throw new JeecgBootException("供应商不存在或已停用，不能执行新收货");
+		}
+		WmsProducts product = productsService.getById(item.getProductId());
+		if (product == null || !"ACTIVE".equals(product.getStatus())) {
+			throw new JeecgBootException("食材不存在或已停用，不能执行生鲜收货");
+		}
+		if (item.getBatchNumber() == null || item.getBatchNumber().isBlank()
+				|| item.getProductionDate() == null || item.getExpiryDate() == null) {
+			throw new JeecgBootException("批号、生产日期和到期日期不能为空");
+		}
+		if (!item.getExpiryDate().isAfter(item.getProductionDate())) {
+			throw new JeecgBootException("到期日期须晚于生产日期");
+		}
 	}
 
 	/**
@@ -84,27 +137,36 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void saveMain(WmsStockInOrders wmsStockInOrders, List<WmsStockInOrderItems> wmsStockInOrderItemsList) {
-		validateProducts(wmsStockInOrders, wmsStockInOrderItemsList, List.of());
-		wmsStockInOrdersMapper.insert(wmsStockInOrders);
-		if(wmsStockInOrderItemsList!=null && wmsStockInOrderItemsList.size()>0) {
-			for(WmsStockInOrderItems entity:wmsStockInOrderItemsList) {
-				//外键设置
-				entity.setOrderId(wmsStockInOrders.getId());
-				wmsStockInOrderItemsMapper.insert(entity);
-			}
+		freshAccessService.requireStaff();
+		if (wmsStockInOrderItemsList == null || wmsStockInOrderItemsList.isEmpty()) {
+			throw new JeecgBootException("请添加入库明细");
 		}
+		validateProducts(wmsStockInOrders, wmsStockInOrderItemsList, List.of());
+		wmsStockInOrders.setId(null);
+		wmsStockInOrders.setOrderNumber(generateOrderNumber());
+		wmsStockInOrders.setStatus(WarehouseDictEnum.INBOUND_INITIAL.getCode());
+		wmsStockInOrders.setTotalReceivedQuantity(0);
+		wmsStockInOrders.setTotalShelvedQuantity(0);
+		wmsStockInOrders.setTotalDefectiveQuantity(0);
+		List<WmsStockInOrderItems> items = mergePlannedItems(wmsStockInOrderItemsList);
+		long total = items.stream().mapToLong(WmsStockInOrderItems::getExpectedQuantity).sum();
+		wmsStockInOrders.setTotalExpectedQuantity(Math.toIntExact(total));
+		wmsStockInOrdersMapper.insert(wmsStockInOrders);
+		insertPlannedItems(items, wmsStockInOrders.getId());
 	}
 	/**
 	 * 审核入库单
 	 * @param wmsStockInOrdersPage
 	 */
+	@Transactional(rollbackFor = Exception.class)
 	public void audit(WmsStockInOrdersPage wmsStockInOrdersPage){
+		freshAccessService.requireStaff();
 		//如果没有选择入库单则返回错误
 		if(oConvertUtils.isEmpty(wmsStockInOrdersPage.getId())){
 			//抛出异常
 			throw new JeecgBootException("请选择要审核的入库单");
 		}
-		WmsStockInOrders wmsStockInOrdersEntity = getById(wmsStockInOrdersPage.getId());
+		WmsStockInOrders wmsStockInOrdersEntity = lockById(wmsStockInOrdersPage.getId());
 		if(wmsStockInOrdersEntity==null) {
 			//异常
 			throw new JeecgBootException("入库单不存在");
@@ -114,6 +176,15 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 		if(wmsStockInOrderItemsList==null || wmsStockInOrderItemsList.size()<=0){
 			//异常
 			throw new JeecgBootException("请添加入库明细");
+		}
+		if (WarehouseDictEnum.INBOUND_APPROVED.getCode().equals(wmsStockInOrdersPage.getStatus())) {
+			for (WmsStockInOrderItems item : wmsStockInOrderItemsList) {
+				validatePlannedFacts(wmsStockInOrdersEntity, item);
+			}
+		}
+		if (!(WarehouseDictEnum.INBOUND_APPROVED.getCode().equals(wmsStockInOrdersPage.getStatus())
+				|| WarehouseDictEnum.INBOUND_REJECTED.getCode().equals(wmsStockInOrdersPage.getStatus()))) {
+			throw new JeecgBootException("审核结果状态无效");
 		}
 		//当前状态只能是提交审核状态
 		if(!WarehouseDictEnum.INBOUND_SUBMIT_AUDIT.getCode().equals(wmsStockInOrdersEntity.getStatus())){
@@ -128,13 +199,15 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	 * 提交审核
 	 * @param wmsStockInOrdersPage
 	 */
+	@Transactional(rollbackFor = Exception.class)
 	public void submitAudit(WmsStockInOrdersPage wmsStockInOrdersPage){
+		freshAccessService.requireStaff();
 		//如果没有选择入库单则返回错误
 		if(wmsStockInOrdersPage==null || oConvertUtils.isEmpty(wmsStockInOrdersPage.getId())){
 			//抛出异常
 			throw new JeecgBootException("请选择要审核的入库单");
 		}
-		WmsStockInOrders wmsStockInOrdersEntity = getById(wmsStockInOrdersPage.getId());
+		WmsStockInOrders wmsStockInOrdersEntity = lockById(wmsStockInOrdersPage.getId());
 		if(wmsStockInOrdersEntity==null) {
 			//异常
 			throw new JeecgBootException("入库单不存在");
@@ -151,7 +224,8 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void updateMain(WmsStockInOrders wmsStockInOrders,List<WmsStockInOrderItems> wmsStockInOrderItemsList) {
-        WmsStockInOrders existing = wmsStockInOrdersMapper.selectById(wmsStockInOrders.getId());
+		freshAccessService.requireStaff();
+		WmsStockInOrders existing = lockById(wmsStockInOrders.getId());
         if (existing == null) {
             throw new JeecgBootException("入库单不存在");
         }
@@ -159,57 +233,61 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
                 || WarehouseDictEnum.INBOUND_REJECTED.getCode().equals(existing.getStatus()))) {
             throw new JeecgBootException("非初始状态、审核失败状态入库单不允许修改");
         }
-        // Persisted state is authoritative; a caller cannot turn a committed order into a draft.
+        if (wmsStockInOrderItemsList == null || wmsStockInOrderItemsList.isEmpty()) {
+            throw new JeecgBootException("请选择入库单明细");
+        }
         wmsStockInOrders.setStatus(existing.getStatus());
+        wmsStockInOrders.setOrderNumber(existing.getOrderNumber());
+        wmsStockInOrders.setTotalReceivedQuantity(existing.getTotalReceivedQuantity());
+        wmsStockInOrders.setTotalShelvedQuantity(existing.getTotalShelvedQuantity());
+        wmsStockInOrders.setTotalDefectiveQuantity(existing.getTotalDefectiveQuantity());
+        if (wmsStockInOrders.getSupplierId() == null) {
+            wmsStockInOrders.setSupplierId(existing.getSupplierId());
+        }
         validateProducts(wmsStockInOrders, wmsStockInOrderItemsList,
                 stockInOrderItemsService.selectByMainId(existing.getId()));
+        List<WmsStockInOrderItems> items = mergePlannedItems(wmsStockInOrderItemsList);
+        long total = items.stream().mapToLong(WmsStockInOrderItems::getExpectedQuantity).sum();
+        wmsStockInOrders.setTotalExpectedQuantity(Math.toIntExact(total));
+        wmsStockInOrdersMapper.updateById(wmsStockInOrders);
+        wmsStockInOrderItemsMapper.deleteByMainId(existing.getId());
+        insertPlannedItems(items, existing.getId());
+    }
 
-		if(wmsStockInOrderItemsList==null || wmsStockInOrderItemsList.size()<=0){
-			//抛出异常
-			throw new JeecgBootException("请选择入库单明细");
-		}
-		wmsStockInOrdersMapper.updateById(wmsStockInOrders);
+    private List<WmsStockInOrderItems> mergePlannedItems(List<WmsStockInOrderItems> items) {
+        Map<InboundBatchKey, WmsStockInOrderItems> merged = new LinkedHashMap<>();
+        for (WmsStockInOrderItems item : items) {
+            merged.merge(batchKey(item), item, (first, next) -> {
+                if (!first.getProductionDate().equals(next.getProductionDate())
+                        || !first.getExpiryDate().equals(next.getExpiryDate())) {
+                    throw new JeecgBootException("相同食材和批号不能使用不同的生产或到期日期");
+                }
+                first.setExpectedQuantity(Math.addExact(first.getExpectedQuantity(), next.getExpectedQuantity()));
+                return first;
+            });
+        }
+        return List.copyOf(merged.values());
+    }
 
-		//1.先删除子表数据
-		wmsStockInOrderItemsMapper.deleteByMainId(wmsStockInOrders.getId());
+    private InboundBatchKey batchKey(WmsStockInOrderItems item) {
+        String label = item.getBatchNumber();
+        return new InboundBatchKey(item.getProductId(), label == null ? null : label.toLowerCase(Locale.ROOT));
+    }
 
-		//对入库单明细的数据按商品分组(对明细中重复的商品进行合并 )
-		//<商品id,入库单明细>
-		Map<String, List<WmsStockInOrderItems>> collect = wmsStockInOrderItemsList.stream()
-				.filter(item -> item.getProductId() != null)
-				.collect(Collectors.groupingBy(WmsStockInOrderItems::getProductId));
-		//合并结果集
-		List<WmsStockInOrderItems> mergeList = new ArrayList<>();
-		//遍历collect
-		for (Map.Entry<String, List<WmsStockInOrderItems>> entry : collect.entrySet()) {
-			List<WmsStockInOrderItems> list = entry.getValue();
-			//如果list集合大小1
-			if(list.size() >1){
-				//计算采购总数
-				int expectedQuantity = list.stream().mapToInt(WmsStockInOrderItems::getExpectedQuantity).sum();
-				//合并后的对象
-				WmsStockInOrderItems merge = new WmsStockInOrderItems();
-				WmsStockInOrderItems wmsStockInOrderItems = list.get(0);
-				BeanUtils.copyProperties(wmsStockInOrderItems, merge);
-				merge.setExpectedQuantity(expectedQuantity);
-				mergeList.add(merge);
+    private void insertPlannedItems(List<WmsStockInOrderItems> items, String orderId) {
+        for (WmsStockInOrderItems item : items) {
+            resetItemProgress(item, orderId);
+            wmsStockInOrderItemsMapper.insert(item);
+        }
+    }
 
-			}else{
-				mergeList.add(list.get(0));
-			}
-		}
-		//计算预期采购总量
-		int totalExpectedQuantity = mergeList.stream().mapToInt(WmsStockInOrderItems::getExpectedQuantity).sum();
-		//2.子表数据重新插入
-		for(WmsStockInOrderItems entity:mergeList) {
-			//外键设置
-			entity.setOrderId(wmsStockInOrders.getId());
-			//状态为初始状态
-			entity.setStatus(WarehouseDictEnum.INBOUND_DETAIL_INITIAL.getCode());
-			wmsStockInOrderItemsMapper.insert(entity);
-		}
-		wmsStockInOrders.setTotalExpectedQuantity(totalExpectedQuantity);
-		wmsStockInOrdersMapper.updateById(wmsStockInOrders);
+	private void resetItemProgress(WmsStockInOrderItems item, String orderId) {
+		item.setId(null);
+		item.setOrderId(orderId);
+		item.setReceivedQuantity(0);
+		item.setShelvedQuantity(0);
+		item.setDefectiveQuantity(0);
+		item.setStatus(WarehouseDictEnum.INBOUND_DETAIL_INITIAL.getCode());
 	}
 
     /** Disabled products may retain/reduce existing commitments, but cannot create new ones.
@@ -217,12 +295,19 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
      */
     private void validateProducts(WmsStockInOrders order, List<WmsStockInOrderItems> items,
                                   List<WmsStockInOrderItems> existingItems) {
-        Map<String, Long> previous = new HashMap<>();
+        Map<InboundBatchKey, Long> previous = new HashMap<>();
         for (WmsStockInOrderItems item : existingItems) {
-            previous.merge(item.getProductId(), (long) item.getExpectedQuantity(), Long::sum);
+			previous.merge(batchKey(item), (long) item.getExpectedQuantity(), Long::sum);
         }
-        Map<String, Long> requested = new HashMap<>();
+        Map<InboundBatchKey, Long> requested = new HashMap<>();
         if (items == null) { return; }
+		if (order.getSupplierId() == null || order.getSupplierId().isBlank()) {
+			throw new JeecgBootException("请选择入库供应商");
+		}
+		FreshSupplier supplier = supplierService.getById(order.getSupplierId());
+		if (supplier == null || !"ACTIVE".equals(supplier.getStatus())) {
+			throw new JeecgBootException("供应商不存在或已停用");
+		}
         for (WmsStockInOrderItems item : items) {
             if (item == null || item.getProductId() == null || item.getProductId().isBlank()) {
                 throw new JeecgBootException("入库食材不能为空");
@@ -230,10 +315,17 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
             if (item.getExpectedQuantity() == null || item.getExpectedQuantity() <= 0) {
                 throw new JeecgBootException("入库计划数量必须为正整数");
             }
-            requested.merge(item.getProductId(), (long) item.getExpectedQuantity(), Long::sum);
+			if (item.getBatchNumber() == null || item.getBatchNumber().isBlank()
+					|| item.getProductionDate() == null || item.getExpiryDate() == null
+					|| !item.getExpiryDate().isAfter(item.getProductionDate())) {
+				throw new JeecgBootException("每条入库明细须填写批号、生产日期及晚于生产日期的到期日期");
+			}
+            item.setBatchNumber(FreshValidation.text(item.getBatchNumber(), "批号", 32));
+			requested.merge(batchKey(item), (long) item.getExpectedQuantity(), Long::sum);
         }
-        for (Map.Entry<String, Long> entry : requested.entrySet()) {
-            WmsProducts product = productsService.getById(entry.getKey());
+		for (Map.Entry<InboundBatchKey, Long> entry : requested.entrySet()) {
+			String productId = entry.getKey().productId();
+			WmsProducts product = productsService.getById(productId);
             if (product == null || !Objects.equals(product.getOwnerId(), order.getOwnerId())) {
                 throw new JeecgBootException("入库食材不存在或不属于该货主");
             }
@@ -252,6 +344,8 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void delMain(String id) {
+		freshAccessService.requireStaff();
+		assertDraftDeletable(id);
 		wmsStockInOrderItemsMapper.deleteByMainId(id);
 		wmsStockInOrdersMapper.deleteById(id);
 	}
@@ -259,9 +353,25 @@ public class WmsStockInOrdersServiceImpl extends ServiceImpl<WmsStockInOrdersMap
 	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public void delBatchMain(Collection<? extends Serializable> idList) {
+		freshAccessService.requireStaff();
 		for(Serializable id:idList) {
+			assertDraftDeletable(id.toString());
 			wmsStockInOrderItemsMapper.deleteByMainId(id.toString());
 			wmsStockInOrdersMapper.deleteById(id);
+		}
+	}
+
+	private void assertDraftDeletable(String id) {
+		WmsStockInOrders order = getById(id);
+		if (order == null) { return; }
+		if (!(WarehouseDictEnum.INBOUND_INITIAL.getCode().equals(order.getStatus())
+				|| WarehouseDictEnum.INBOUND_REJECTED.getCode().equals(order.getStatus()))) {
+			throw new JeecgBootException("已提交或执行的入库单不能删除");
+		}
+		Long taskCount = jdbcTemplate.queryForObject(
+				"SELECT COUNT(*) FROM wms_tasks WHERE stock_in_order_id = ?", Long.class, id);
+		if (taskCount != null && taskCount > 0) {
+			throw new JeecgBootException("入库单已被任务引用，不能删除");
 		}
 	}
 

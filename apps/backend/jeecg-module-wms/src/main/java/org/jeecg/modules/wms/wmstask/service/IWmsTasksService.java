@@ -5,6 +5,8 @@ import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
 
+import java.util.List;
+
 /**
  * @Description: 任务表
  * @Author: jeecg-boot
@@ -14,10 +16,10 @@ import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
 public interface IWmsTasksService extends IService<WmsTasks> {
     /**
      * 创建收货任务
-     * @param inOrderId 入库单id
+     * @param orderIds 入库单ID列表
      * @param operator 执行人
      */
-    public void createReceiveTask(String inOrderId,String operator);
+    void createReceiveTasks(List<String> orderIds, String operator);
 
     /**
      * 生成任务编号
@@ -44,12 +46,6 @@ public interface IWmsTasksService extends IService<WmsTasks> {
      * 执行任务
      */
     WmsTasks execute(WmsTasksRecords wmsTasksRecords);
-
-    /**
-     * 创建上架任务
-     * @param orderId
-     */
-    public void createPutawayTask(String orderId);
 
     /**
      * 上架方法

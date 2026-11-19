@@ -70,6 +70,8 @@ public class WmsTasksRecords implements Serializable {
 	@Excel(name = "执行数量", width = 15)
     @Schema(description = "执行数量")
     private Integer execQuantity;
+
+    private String requestKey;
 	/**来源储位编码*/
 	@Excel(name = "来源储位编码", width = 15)
     @Schema(description = "来源储位编码")
@@ -126,6 +128,12 @@ public class WmsTasksRecords implements Serializable {
     @DateTimeFormat(pattern="yyyy-MM-dd")
     @Schema(description = "保质期")
     private Date expiryDate;
+
+    @TableField(exist = false)
+    private java.time.LocalDate productionDate;
+
+    @TableField(exist = false)
+    private String supplierId;
 	/**出库单id*/
 	@Excel(name = "出库单id", width = 15)
     @Schema(description = "出库单id")

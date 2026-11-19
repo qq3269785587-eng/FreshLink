@@ -18,7 +18,8 @@ public class FreshReferenceGuard {
     private JdbcTemplate jdbcTemplate;
 
     public void assertSupplierDeletable(String supplierId) {
-        long references = countIfTable("fresh_batch", "supplier_id", supplierId);
+        long references = countIfTable("fresh_batch", "supplier_id", supplierId)
+                + countIfTable("wms_stock_in_orders", "supplier_id", supplierId);
         if (references > 0) {
             throw new JeecgBootException("供应商已被批次引用，不能删除；请改为禁用");
         }

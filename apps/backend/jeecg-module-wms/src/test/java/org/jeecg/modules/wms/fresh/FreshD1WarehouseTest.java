@@ -6,6 +6,10 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.modules.wms.config.WarehouseDictEnum;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
+import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
+import org.jeecg.modules.wms.inorder.service.IWmsStockInOrderItemsService;
+import org.jeecg.modules.wms.inorder.service.IWmsStockInOrdersService;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageZones;
 import org.jeecg.modules.wms.warehouse.entity.WmsWarehouses;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
@@ -13,10 +17,13 @@ import org.jeecg.modules.wms.warehouse.service.IWmsWarehousesService;
 import org.jeecg.modules.wms.warehouse.service.impl.WmsStorageZonesServiceImpl;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
+import org.jeecg.modules.wms.wmstask.mapper.WmsTasksMapper;
+import org.jeecg.modules.wms.wmstask.service.IWmsTasksRecordsService;
 import org.jeecg.modules.wms.wmstask.service.impl.WmsTasksServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -55,11 +62,32 @@ class FreshD1WarehouseTest {
 
     @Test
     void putawayUsesTheTasksWarehouseAndStopsBeforeAnyWriteIfTargetIsDisabled() {
-        WmsTasksServiceImpl service = spy(new WmsTasksServiceImpl());
+        WmsTasksServiceImpl service = new WmsTasksServiceImpl();
+        WmsTasksMapper mapper = mock(WmsTasksMapper.class);
+        IWmsStockInOrdersService orders = mock(IWmsStockInOrdersService.class);
+        IWmsStockInOrderItemsService items = mock(IWmsStockInOrderItemsService.class);
+        IWmsTasksRecordsService records = mock(IWmsTasksRecordsService.class);
+        ReflectionTestUtils.setField(service, "baseMapper", mapper);
+        ReflectionTestUtils.setField(service, "stockInOrdersService", orders);
+        ReflectionTestUtils.setField(service, "stockInOrderItemsService", items);
+        ReflectionTestUtils.setField(service, "wmsTasksRecordsService", records);
         WmsTasks task = new WmsTasks();
+        task.setStockInOrderId("O1");
+        task.setStockInOrderItemId("I1");
         task.setTaskType(WarehouseDictEnum.TASK_TYPE_PUTAWAY.getCode());
         task.setTargetWarehouseId("W1");
-        doReturn(task).when(service).getById("T1");
+        when(mapper.selectOne(any())).thenReturn(task);
+        WmsStockInOrders order = new WmsStockInOrders();
+        order.setId("O1");
+        order.setStatus(WarehouseDictEnum.INBOUND_RECEIVED.getCode());
+        order.setSupplierId("S1");
+        when(orders.lockById("O1")).thenReturn(order);
+        WmsStockInOrderItems item = new WmsStockInOrderItems();
+        item.setOrderId("O1");
+        item.setBatchNumber("B1");
+        item.setProductionDate(LocalDate.of(2026, 11, 17));
+        item.setExpiryDate(LocalDate.of(2026, 11, 21));
+        when(items.getById("I1")).thenReturn(item);
         IWmsStorageLocationsService locations = mock(IWmsStorageLocationsService.class);
         ReflectionTestUtils.setField(service, "storageLocations", locations);
         for (String inactiveTarget : List.of("目标仓库", "目标库区", "目标储位")) {
@@ -67,12 +95,16 @@ class FreshD1WarehouseTest {
                     .when(locations).requireActivePutawayTarget("W1", "L1");
             WmsTasksRecords execution = new WmsTasksRecords();
             execution.setTaskId("T1");
+            execution.setRequestKey("d1-target-check");
+            execution.setExecQuantity(1);
             execution.setTargetWarehouseId("W2");
             execution.setTargetLocationCode("L1");
 
             assertEquals(inactiveTarget + "未启用", assertThrows(JeecgBootException.class, () -> service.putaway(execution)).getMessage());
         }
-        verify(service, never()).execute(any(WmsTasksRecords.class));
+        verify(mapper, times(3)).selectOne(any());
+        verifyNoMoreInteractions(mapper);
+        verify(records, never()).save(any());
     }
 
     private WmsStorageZones zone(String id, String code) {

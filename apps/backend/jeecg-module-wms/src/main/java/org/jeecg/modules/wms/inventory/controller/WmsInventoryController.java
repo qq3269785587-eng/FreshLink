@@ -16,6 +16,8 @@ import org.jeecg.common.system.query.QueryRuleEnum;
 import org.jeecg.common.util.oConvertUtils;
 import org.jeecg.modules.wms.inventory.entity.WmsInventory;
 import org.jeecg.modules.wms.inventory.service.IWmsInventoryService;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
+import org.jeecg.common.exception.JeecgBootException;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -52,6 +54,8 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class WmsInventoryController extends JeecgController<WmsInventory, IWmsInventoryService> {
 	@Autowired
 	private IWmsInventoryService wmsInventoryService;
+	@Autowired
+	private FreshAccessService freshAccess;
 
 	/**
 	 * 分页列表查询
@@ -69,6 +73,7 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
+		freshAccess.requireStaff();
 		IPage<WmsInventory> wmsInventoryIPage = wmsInventoryService.queryList(wmsInventory, pageNo, pageSize);
 		return Result.OK(wmsInventoryIPage);
 	}
@@ -84,8 +89,8 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 	@RequiresPermissions("inventory:wms_inventory:add")
 	@PostMapping(value = "/add")
 	public Result<String> add(@RequestBody WmsInventory wmsInventory) {
-		wmsInventoryService.save(wmsInventory);
-		return Result.OK("添加成功！");
+		freshAccess.requireStaff();
+		throw new JeecgBootException("库存只能通过入库收货、上架和确认出库业务变更");
 	}
 
 	/**
@@ -99,8 +104,8 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 	@RequiresPermissions("inventory:wms_inventory:edit")
 	@RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
 	public Result<String> edit(@RequestBody WmsInventory wmsInventory) {
-		wmsInventoryService.updateById(wmsInventory);
-		return Result.OK("编辑成功!");
+		freshAccess.requireStaff();
+		throw new JeecgBootException("库存只能通过入库收货、上架和确认出库业务变更");
 	}
 
 	/**
@@ -114,8 +119,8 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 	@RequiresPermissions("inventory:wms_inventory:delete")
 	@DeleteMapping(value = "/delete")
 	public Result<String> delete(@RequestParam(name="id",required=true) String id) {
-		wmsInventoryService.removeById(id);
-		return Result.OK("删除成功!");
+		freshAccess.requireStaff();
+		throw new JeecgBootException("库存流水和批次来源需保留，不能直接删除库存");
 	}
 
 	/**
@@ -129,8 +134,8 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 	@RequiresPermissions("inventory:wms_inventory:deleteBatch")
 	@DeleteMapping(value = "/deleteBatch")
 	public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-		this.wmsInventoryService.removeByIds(Arrays.asList(ids.split(",")));
-		return Result.OK("批量删除成功!");
+		freshAccess.requireStaff();
+		throw new JeecgBootException("库存流水和批次来源需保留，不能直接删除库存");
 	}
 
 	/**
@@ -143,11 +148,11 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
 	@Operation(summary="库存表-通过id查询")
 	@GetMapping(value = "/queryById")
 	public Result<WmsInventory> queryById(@RequestParam(name="id",required=true) String id) {
-		WmsInventory wmsInventory = wmsInventoryService.getById(id);
-		if(wmsInventory==null) {
-			return Result.error("未找到对应数据");
-		}
-		return Result.OK(wmsInventory);
+		freshAccess.requireStaff();
+        WmsInventory query = new WmsInventory();
+        query.setId(id);
+        return wmsInventoryService.queryList(query, 1, 1).getRecords().stream()
+                .findFirst().map(Result::OK).orElseGet(() -> Result.error("未找到对应数据"));
 	}
 
     /**
@@ -159,6 +164,7 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
     @RequiresPermissions("inventory:wms_inventory:exportXls")
     @RequestMapping(value = "/exportXls")
     public ModelAndView exportXls(HttpServletRequest request, WmsInventory wmsInventory) {
+        freshAccess.requireStaff();
         return super.exportXls(request, wmsInventory, WmsInventory.class, "库存表");
     }
 
@@ -172,7 +178,8 @@ public class WmsInventoryController extends JeecgController<WmsInventory, IWmsIn
     @RequiresPermissions("inventory:wms_inventory:importExcel")
     @RequestMapping(value = "/importExcel", method = RequestMethod.POST)
     public Result<?> importExcel(HttpServletRequest request, HttpServletResponse response) {
-        return super.importExcel(request, response, WmsInventory.class);
+        freshAccess.requireStaff();
+        throw new JeecgBootException("库存只能通过入库收货、上架和确认出库业务变更");
     }
 
 }
