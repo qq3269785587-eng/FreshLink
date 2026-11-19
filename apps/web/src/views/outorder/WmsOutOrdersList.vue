@@ -1,5 +1,6 @@
 <template>
-  <div>
+  <FreshOutboundAndDelivery v-if="canWriteFreshWorkflow" />
+  <div v-else>
     <!--引用表格-->
    <BasicTable @register="registerTable" :rowSelection="rowSelection">
      <!--插槽:table标题-->
@@ -61,6 +62,9 @@
   import {downloadFile} from '/@/utils/common/renderUtils';
   import { useUserStore } from '/@/store/modules/user';
   import {useMessage} from "@/hooks/web/useMessage";
+  import FreshOutboundAndDelivery from '../fresh/FreshOutboundAndDelivery.vue';
+  import { useFreshWorkflowAccess } from '../fresh/freshWorkflowAccess';
+  const { canWrite: canWriteFreshWorkflow } = useFreshWorkflowAccess();
   const { createMessage } = useMessage();
   const queryParam = reactive<any>({});
   const checkedKeys = ref<Array<string | number>>([]);
