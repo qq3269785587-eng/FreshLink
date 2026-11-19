@@ -1,22 +1,21 @@
 package org.jeecg.modules.wms.inorder.controller;
 
-import java.util.Arrays;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.util.Arrays;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.SecurityUtils;
 import org.jeecg.common.api.vo.Result;
-import org.jeecg.common.system.query.QueryGenerator;
+import org.jeecg.modules.wms.config.WarehouseDictEnum;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
+import org.jeecg.modules.wms.inorder.vo.FreshInboundAction;
 import org.jeecg.common.system.vo.LoginUser;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasksRecords;
 import org.jeecg.modules.wms.wmstask.service.IWmsTasksRecordsService;
 import org.jeecg.modules.wms.wmstask.service.IWmsTasksService;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
 
 import org.jeecg.common.system.base.controller.JeecgController;
@@ -41,6 +40,8 @@ import org.apache.shiro.authz.annotation.RequiresPermissions;
 public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksService> {
 	@Autowired
 	private IWmsTasksService wmsTasksService;
+    @Autowired
+    private FreshAccessService access;
 	 @Autowired
 	 private IWmsTasksRecordsService wmsTasksRecordsService;
 	/**
@@ -59,10 +60,9 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 								   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 								   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 								   HttpServletRequest req) {
-//        QueryWrapper<WmsTasks> queryWrapper = QueryGenerator.initQueryWrapper(wmsTasks, req.getParameterMap());
-//		Page<WmsTasks> page = new Page<WmsTasks>(pageNo, pageSize);
-//		IPage<WmsTasks> pageList = wmsTasksService.page(page, queryWrapper);
 
+        access.requireStaff();
+        wmsTasks.setTaskType(WarehouseDictEnum.TASK_TYPE_RECEIVING.getCode());
 		//获取当前用户
 		LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
 		wmsTasks.setOperator(sysUser.getId());
@@ -76,6 +76,8 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 														 @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
 														 @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
 														 HttpServletRequest req) {
+         access.requireStaff();
+         wmsTasksRecords.setTaskType(WarehouseDictEnum.TASK_TYPE_RECEIVING.getCode());
 		 //当前用户id
 		 LoginUser sysUser = (LoginUser) SecurityUtils.getSubject().getPrincipal();
 		 wmsTasksRecords.setOperator(sysUser.getId());
@@ -91,6 +93,7 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 	 @RequiresPermissions("inorder:receive_task:add")
 	 @PostMapping(value = "/add")
 	 public Result<String> add(String orderIds, String operator){
+         access.requireStaff();
 		 if(StringUtils.isEmpty(orderIds) || StringUtils.isEmpty( operator)){
 			 return Result.error("请选择入库单及执行人！");
 		 }
@@ -98,9 +101,7 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 		 if(orderIdArray.length == 0){
 			 return Result.error("请选择入库单！");
 		 }
-		 for (String orderId : orderIdArray){
-			 wmsTasksService.createReceiveTask(orderId, operator);
-		 }
+         wmsTasksService.createReceiveTasks(Arrays.asList(orderIdArray), operator);
 		 return Result.OK("创建成功！");
 	 }
 	 /**
@@ -113,14 +114,10 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 	 @Operation(summary="收货")
 	 @RequiresPermissions("inorder:receive_task:addRecords")
 	 @PostMapping(value = "/addRecords")
-	 public Result<String> addRecords(@RequestBody WmsTasksRecords wmsTasksRecords) {
-		 String id = wmsTasksRecords.getId();
-		 wmsTasksRecords.setTaskId( id);
-		 wmsTasksRecords.setId(null);
-		 //执行收货
-		 wmsTasksService.receive(wmsTasksRecords);
-
-		 return Result.OK("添加成功！");
+	 public Result<String> addRecords(@RequestBody FreshInboundAction action) {
+        access.requireStaff();
+        wmsTasksService.receive(action.toRecord());
+        return Result.OK("添加成功！");
 	 }
 
 	 /**
@@ -133,8 +130,9 @@ public class ReceiveTasksController extends JeecgController<WmsTasks, IWmsTasksS
 	 @Operation(summary="任务表-通过id查询")
 	 @GetMapping(value = "/queryById")
 	 public Result<WmsTasks> queryById(@RequestParam(name="id",required=true) String id) {
-		 WmsTasks wmsTasks = wmsTasksService.getById(id);
-		 if(wmsTasks==null) {
+		 access.requireStaff();
+       WmsTasks wmsTasks = wmsTasksService.getById(id);
+		 if (wmsTasks == null || !WarehouseDictEnum.TASK_TYPE_RECEIVING.getCode().equals(wmsTasks.getTaskType())) {
 			 return Result.error("未找到对应数据");
 		 }
 		 return Result.OK(wmsTasks);

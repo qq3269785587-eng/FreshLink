@@ -100,6 +100,9 @@ public class WmsStockInOrdersPage {
 	@Excel(name = "仓库", width = 15)
 	@Schema(description = "仓库")
     private String warehouseId;
+	/**生鲜供应商*/
+	@Schema(description = "生鲜供应商ID")
+	private String supplierId;
 
 	@ExcelCollection(name="入库单明细")
 	@Schema(description = "入库单明细")

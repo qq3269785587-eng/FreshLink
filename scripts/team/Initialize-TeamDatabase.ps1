@@ -92,7 +92,8 @@ try {
         'apps/backend/db/fresh/P1_00_schema.sql',
         'apps/backend/db/fresh/P1_10_menu_role_dict.sql',
         'apps/backend/db/fresh/P1_20_demo_data.sql',
-        'apps/backend/db/fresh/D1_00_warehouse_codes.sql'
+        'apps/backend/db/fresh/D1_00_warehouse_codes.sql',
+        'apps/backend/db/fresh/D2_00_inbound_lots.sql'
     )
     foreach ($file in $files) { Import-MySqlFile $file }
 

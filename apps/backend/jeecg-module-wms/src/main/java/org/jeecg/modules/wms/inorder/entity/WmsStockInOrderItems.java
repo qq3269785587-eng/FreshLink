@@ -7,9 +7,13 @@ import org.jeecg.common.constant.ProvinceCityArea;
 import org.jeecg.common.util.SpringContextUtils;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.OptBoolean;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.jeecg.modules.wms.fresh.support.StrictIntegerDeserializer;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.jeecgframework.poi.excel.annotation.Excel;
 import java.util.Date;
+import java.time.LocalDate;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.io.UnsupportedEncodingException;
 
@@ -55,9 +59,23 @@ public class WmsStockInOrderItems implements Serializable {
 	@Excel(name = "商品id", width = 15)
     @Schema(description = "商品id")
     private String productId;
+	/**供应商批号*/
+	@Schema(description = "供应商批号")
+	private String batchNumber;
+	/**生产日期*/
+	@JsonFormat(pattern = "uuuu-MM-dd", lenient = OptBoolean.FALSE)
+	@DateTimeFormat(pattern = "yyyy-MM-dd")
+	@Schema(description = "生产日期")
+	private LocalDate productionDate;
+	/**到期日期*/
+	@JsonFormat(pattern = "uuuu-MM-dd", lenient = OptBoolean.FALSE)
+	@DateTimeFormat(pattern = "yyyy-MM-dd")
+	@Schema(description = "到期日期")
+	private LocalDate expiryDate;
 	/**采购数量*/
 	@Excel(name = "采购数量", width = 15)
     @Schema(description = "采购数量")
+	@JsonDeserialize(using = StrictIntegerDeserializer.class)
     private Integer expectedQuantity;
 	/**实际收货数量*/
 	@Excel(name = "实际收货数量", width = 15)

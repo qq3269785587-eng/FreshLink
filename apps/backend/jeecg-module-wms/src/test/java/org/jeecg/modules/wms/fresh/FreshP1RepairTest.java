@@ -8,6 +8,9 @@ import org.jeecg.modules.wms.inorder.entity.WmsStockInOrderItems;
 import org.jeecg.modules.wms.inorder.entity.WmsStockInOrders;
 import org.jeecg.modules.wms.inorder.mapper.WmsStockInOrdersMapper;
 import org.jeecg.modules.wms.inorder.service.impl.WmsStockInOrdersServiceImpl;
+import org.jeecg.modules.wms.fresh.access.FreshAccessService;
+import org.jeecg.modules.wms.fresh.entity.FreshSupplier;
+import org.jeecg.modules.wms.fresh.service.IFreshSupplierService;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
@@ -42,24 +45,44 @@ class FreshP1RepairTest {
     @Test void importRejectsDisabledProductBeforeWritingParentOrItems() {
         WmsStockInOrdersServiceImpl service = new WmsStockInOrdersServiceImpl();
         IWmsProductsService products = mock(IWmsProductsService.class);
+        IFreshSupplierService suppliers = mock(IFreshSupplierService.class);
+        FreshAccessService access = mock(FreshAccessService.class);
         WmsStockInOrdersMapper orders = mock(WmsStockInOrdersMapper.class);
         ReflectionTestUtils.setField(service, "productsService", products);
+        ReflectionTestUtils.setField(service, "supplierService", suppliers);
+        ReflectionTestUtils.setField(service, "freshAccessService", access);
         ReflectionTestUtils.setField(service, "wmsStockInOrdersMapper", orders);
+        when(suppliers.getById("supplier")).thenReturn(new FreshSupplier().setStatus("ACTIVE"));
         when(products.getById("disabled")).thenReturn(new WmsProducts().setOwnerId("owner").setStatus("INACTIVE"));
-        WmsStockInOrders order = new WmsStockInOrders(); order.setOwnerId("owner");
-        WmsStockInOrderItems item = new WmsStockInOrderItems(); item.setProductId("disabled"); item.setExpectedQuantity(1);
+        WmsStockInOrders order = new WmsStockInOrders(); order.setOwnerId("owner"); order.setSupplierId("supplier");
+        WmsStockInOrderItems item = validItem("disabled");
         assertThrows(JeecgBootException.class, () -> service.saveMain(order, List.of(item)));
         verifyNoInteractions(orders);
     }
     @Test void importRejectsMissingProductBeforeWritingParent() {
         WmsStockInOrdersServiceImpl service = new WmsStockInOrdersServiceImpl();
         IWmsProductsService products = mock(IWmsProductsService.class);
+        IFreshSupplierService suppliers = mock(IFreshSupplierService.class);
+        FreshAccessService access = mock(FreshAccessService.class);
         WmsStockInOrdersMapper orders = mock(WmsStockInOrdersMapper.class);
         ReflectionTestUtils.setField(service, "productsService", products);
+        ReflectionTestUtils.setField(service, "supplierService", suppliers);
+        ReflectionTestUtils.setField(service, "freshAccessService", access);
         ReflectionTestUtils.setField(service, "wmsStockInOrdersMapper", orders);
-        WmsStockInOrders order = new WmsStockInOrders(); order.setOwnerId("owner");
-        WmsStockInOrderItems item = new WmsStockInOrderItems(); item.setProductId("missing"); item.setExpectedQuantity(1);
+        when(suppliers.getById("supplier")).thenReturn(new FreshSupplier().setStatus("ACTIVE"));
+        WmsStockInOrders order = new WmsStockInOrders(); order.setOwnerId("owner"); order.setSupplierId("supplier");
+        WmsStockInOrderItems item = validItem("missing");
         assertThrows(JeecgBootException.class, () -> service.saveMain(order, List.of(item)));
         verifyNoInteractions(orders);
+    }
+
+    private WmsStockInOrderItems validItem(String productId) {
+        WmsStockInOrderItems item = new WmsStockInOrderItems();
+        item.setProductId(productId);
+        item.setExpectedQuantity(1);
+        item.setBatchNumber("B1");
+        item.setProductionDate(java.time.LocalDate.now().minusDays(1));
+        item.setExpiryDate(java.time.LocalDate.now().plusDays(1));
+        return item;
     }
 }

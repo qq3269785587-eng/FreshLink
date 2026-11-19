@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.jeecg.common.api.vo.Result;
 import org.jeecg.common.aspect.annotation.AutoLog;
+import org.jeecg.modules.wms.config.WarehouseDictEnum;
 import org.jeecg.modules.wms.outorder.entity.WmsOutOrdersItems;
 import org.jeecg.modules.wms.wave.service.IPickingTasksService;
 import org.jeecg.modules.wms.wmstask.entity.WmsTasks;
@@ -49,7 +50,7 @@ public class PickingTasksController {
                                   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
                                   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
                                   HttpServletRequest req) {
-       //todo 设置任务类型为收货任务
+       wmsTasks.setTaskType(WarehouseDictEnum.TASK_TYPE_PICKING.getCode());
        IPage<WmsTasks> wmsTasksIPage = wmsTasksService.list(wmsTasks, pageNo, pageSize);
        return Result.OK(wmsTasksIPage);
    }
@@ -59,7 +60,7 @@ public class PickingTasksController {
                                   @RequestParam(name="pageNo", defaultValue="1") Integer pageNo,
                                   @RequestParam(name="pageSize", defaultValue="10") Integer pageSize,
                                   HttpServletRequest req) {
-       //todo 设置任务类型为收货任务
+       wmsTasksRecords.setTaskType(WarehouseDictEnum.TASK_TYPE_PICKING.getCode());
        IPage<WmsTasksRecords> records = wmsTasksRecordsService.pageList(wmsTasksRecords, pageNo, pageSize);
        return Result.OK(records);
    }
@@ -135,8 +136,14 @@ public class PickingTasksController {
    @RequiresPermissions("wmstask:wms_tasks:edit")
    @RequestMapping(value = "/edit", method = {RequestMethod.PUT,RequestMethod.POST})
    public Result<String> edit(@RequestBody WmsTasks wmsTasks) {
-       wmsTasksService.updateById(wmsTasks);
-       return Result.OK("编辑成功!");
+       if (wmsTasks.getStockInOrderId() != null || wmsTasks.getStockInOrderItemId() != null
+               || (wmsTasks.getTaskType() != null && !isPicking(wmsTasks))) {
+           return Result.error("只能编辑拣货任务");
+       }
+       boolean updated = wmsTasksService.lambdaUpdate().eq(WmsTasks::getId, wmsTasks.getId())
+               .eq(WmsTasks::getTaskType, WarehouseDictEnum.TASK_TYPE_PICKING.getCode())
+               .isNull(WmsTasks::getStockInOrderId).update(wmsTasks);
+       return updated ? Result.OK("编辑成功!") : Result.error("拣货任务不存在");
    }
 
    /**
@@ -150,8 +157,7 @@ public class PickingTasksController {
    @RequiresPermissions("wmstask:wms_tasks:delete")
    @DeleteMapping(value = "/delete")
    public Result<String> delete(@RequestParam(name="id",required=true) String id) {
-       wmsTasksService.removeById(id);
-       return Result.OK("删除成功!");
+       return deletePicking(List.of(id));
    }
 
    /**
@@ -165,8 +171,23 @@ public class PickingTasksController {
    @RequiresPermissions("wmstask:wms_tasks:deleteBatch")
    @DeleteMapping(value = "/deleteBatch")
    public Result<String> deleteBatch(@RequestParam(name="ids",required=true) String ids) {
-       this.wmsTasksService.removeByIds(Arrays.asList(ids.split(",")));
-       return Result.OK("批量删除成功!");
+       return deletePicking(Arrays.asList(ids.split(",")));
+   }
+
+   private Result<String> deletePicking(List<String> ids) {
+       if (ids.isEmpty() || wmsTasksService.listByIds(ids).stream().filter(this::isPicking).count()
+               != ids.stream().distinct().count()) {
+           return Result.error("只能删除有效的拣货任务");
+       }
+       return wmsTasksService.lambdaUpdate().in(WmsTasks::getId, ids)
+               .eq(WmsTasks::getTaskType, WarehouseDictEnum.TASK_TYPE_PICKING.getCode())
+               .isNull(WmsTasks::getStockInOrderId).remove()
+               ? Result.OK("删除成功!") : Result.error("拣货任务不存在");
+   }
+
+   private boolean isPicking(WmsTasks task) {
+       return WarehouseDictEnum.TASK_TYPE_PICKING.getCode().equals(task.getTaskType())
+               && task.getStockInOrderId() == null;
    }
 
    /**
@@ -180,7 +201,7 @@ public class PickingTasksController {
    @GetMapping(value = "/queryById")
    public Result<WmsTasks> queryById(@RequestParam(name="id",required=true) String id) {
        WmsTasks wmsTasks = wmsTasksService.getById(id);
-       if(wmsTasks==null) {
+       if(wmsTasks == null || !isPicking(wmsTasks)) {
            return Result.error("未找到对应数据");
        }
        return Result.OK(wmsTasks);

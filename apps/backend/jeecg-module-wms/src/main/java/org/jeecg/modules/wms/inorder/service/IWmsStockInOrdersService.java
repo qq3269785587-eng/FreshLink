@@ -76,4 +76,8 @@ public interface IWmsStockInOrdersService extends IService<WmsStockInOrders> {
 	 */
 	String updatePutawayStatus(String stockInOrderId);
 
+	WmsStockInOrders lockById(String id);
+
+	void requireReceivable(WmsStockInOrders order, WmsStockInOrderItems item);
+
 }

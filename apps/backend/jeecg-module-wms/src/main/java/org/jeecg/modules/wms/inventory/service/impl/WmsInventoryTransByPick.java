@@ -15,6 +15,7 @@ import org.jeecg.modules.wms.inventory.vo.WmsInventoryTransParam;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageZonesService;
+import org.jeecg.common.exception.JeecgBootException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,9 @@ public class WmsInventoryTransByPick extends ServiceImpl<WmsInventoryTransMapper
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transfer(WmsInventoryTransParam inventoryTransParam) {
+        if (StringUtils.startsWith(inventoryTransParam.getBatchNumber(), "FL:")) {
+            throw new JeecgBootException("生鲜入库批次不能通过旧拣货任务变更");
+        }
         //非空判断，商品id、原始储位编码、目标储位编码、数量不能为空
         if (StringUtils.isEmpty(inventoryTransParam.getProductId())
                 || StringUtils.isEmpty(inventoryTransParam.getSourceLocationCode())
