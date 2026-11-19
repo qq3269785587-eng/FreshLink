@@ -4,11 +4,65 @@ import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import {JVxeTypes,JVxeColumn} from '/@/components/jeecg/JVxeTable/types'
 import { getWeekMonthQuarterYear } from '/@/utils';
-import {computed, h} from "vue";
 import {Input} from "ant-design-vue";
 import {list} from "@/views/warehouse/WmsWarehouses.api";
 import {defHttp} from "@/utils/http/axios";
 import {getTenantId, getToken} from '/@/utils/auth';
+import { getInboundQuantityError } from './inboundValidation';
+import { inboundSupplierOptions } from '/@/views/fresh/suppliers/FreshSupplier.api';
+import { getDictItemsByCode } from '/@/utils/dict';
+import type { InboundProductOption } from './WmsStockInOrders.api';
+
+const orderTypeLabels: Record<string, string> = {
+  PURCHASE_IN: '采购入库',
+  FBA_RETURN_IN: 'FBA 退货入库',
+  OTHER_IN: '其他入库',
+};
+
+const orderStatusLabels: Record<string, string> = {
+  INITIAL: '初始',
+  SUBMITTED: '提交审核',
+  APPROVED: '审核通过',
+  REJECTED: '审核失败',
+  RECEIVING: '收货中',
+  RECEIVED: '收货完成',
+  PUTAWAYING: '上架中',
+  PUTAWAYED: '上架完成',
+  CLOSED: '已关闭',
+  CANCELED: '已作废',
+};
+
+function orderOptions(dictCode: string, fallback: Record<string, string>) {
+  const configured = getDictItemsByCode(dictCode);
+  if (Array.isArray(configured) && configured.length) {
+    return configured.map(({ value, text, label }) => ({ value, label: text || label || value }));
+  }
+  return Object.entries(fallback).map(([value, label]) => ({ value, label }));
+}
+
+function orderLabel(value: string | undefined, translated: string | undefined, fallback: Record<string, string>) {
+  if (translated && translated !== value) return translated;
+  return value ? fallback[value] || value : '—';
+}
+
+const orderTypeOptions = () => ({ options: orderOptions('asn_type', orderTypeLabels) });
+const orderStatusOptions = () => ({ options: orderOptions('asn_status', orderStatusLabels), disabled: true });
+
+export const inboundSupplierField = (disabled = false): FormSchema => ({
+  label: '供应商',
+  field: 'supplierId',
+  component: 'ApiSelect',
+  componentProps: ({ formModel }) => ({
+    api: inboundSupplierOptions,
+    params: { supplierId: formModel.supplierId },
+    labelField: 'supplierName',
+    valueField: 'id',
+    showSearch: true,
+    optionFilterProp: 'label',
+    disabled,
+  }),
+  required: !disabled,
+});
 //列表数据
 export const columns: BasicColumn[] = [
    {
@@ -19,7 +73,8 @@ export const columns: BasicColumn[] = [
    {
     title: '入库类型',
     align:"center",
-    dataIndex: 'orderType_dictText'
+    dataIndex: 'orderType_dictText',
+    customRender: ({ text, record }) => orderLabel(record.orderType, text, orderTypeLabels),
    },
    {
     title: '来源单号',
@@ -53,7 +108,8 @@ export const columns: BasicColumn[] = [
    {
     title: '状态',
     align:"center",
-    dataIndex: 'status_dictText'
+    dataIndex: 'status_dictText',
+    customRender: ({ text, record }) => orderLabel(record.status, text, orderStatusLabels),
    },
    // {
    //  title: '备注',
@@ -134,10 +190,8 @@ export const searchFormSchema: FormSchema[] = [
   {
     label: '入库类型',
     field: 'orderType',
-    component: 'JDictSelectTag',
-    componentProps:{
-      dictCode:"asn_type"
-    },
+    component: 'Select',
+    componentProps: orderTypeOptions,
   },
   {
     label: '货主',
@@ -154,6 +208,7 @@ export const searchFormSchema: FormSchema[] = [
 ];
 //表单数据
 export const formSchema: FormSchema[] = [
+  inboundSupplierField(),
   {
     label: '入库单号',
     field: 'orderNumber',
@@ -166,10 +221,8 @@ export const formSchema: FormSchema[] = [
   {
     label: '入库类型',
     field: 'orderType',
-    component: 'JDictSelectTag',
-    componentProps:{
-        dictCode:"asn_type"
-     },
+    component: 'Select',
+    componentProps: orderTypeOptions,
   },
   {
     label: '来源单号',
@@ -227,11 +280,8 @@ export const formSchema: FormSchema[] = [
   {
     label: '状态',
     field: 'status',
-    component: 'JDictSelectTag',
-    componentProps:{
-        dictCode:"asn_status",
-        disabled: true
-     },
+    component: 'Select',
+    componentProps: orderStatusOptions,
   },
   {
     label: '备注',
@@ -247,6 +297,7 @@ export const formSchema: FormSchema[] = [
 ];
 //表单数据
 export const formAddSchema: FormSchema[] = [
+  inboundSupplierField(),
   {
     label: '入库单号',
     field: 'orderNumber',
@@ -259,10 +310,8 @@ export const formAddSchema: FormSchema[] = [
   {
     label: '入库类型',
     field: 'orderType',
-    component: 'JDictSelectTag',
-    componentProps:{
-        dictCode:"asn_type"
-     },
+    component: 'Select',
+    componentProps: orderTypeOptions,
   },
   {
     label: '来源单号',
@@ -314,11 +363,8 @@ export const formAddSchema: FormSchema[] = [
   {
     label: '状态',
     field: 'status',
-    component: 'JDictSelectTag',
-    componentProps:{
-        dictCode:"asn_status",
-        disabled: true
-     },
+    component: 'Select',
+    componentProps: orderStatusOptions,
     //默认
     defaultValue: 'INITIAL',
   },
@@ -376,6 +422,9 @@ export const wmsStockInOrderItemsColumns: BasicColumn[] = [
     align:"center",
     dataIndex: 'productId'
    },
+  { title: '批次号', align: 'center', dataIndex: 'batchNumber' },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
+  { title: '到期日期', align: 'center', dataIndex: 'expiryDate' },
    {
     title: '采购数量',
     align:"center",
@@ -407,23 +456,15 @@ export const wmsStockInOrderItemsColumns: BasicColumn[] = [
     dataIndex: 'status'
    },
 ];
-export function createWmsStockInOrderItemsJVxeColumns(getFieldsValue) {
+export function createWmsStockInOrderItemsJVxeColumns(productOptions: InboundProductOption[]) {
   return [
     {
       title: '商品',
       key: 'productId',
-      type: JVxeTypes.popup,
+      type: JVxeTypes.selectSearch,
       width: "200px",
-      popupCode: 'wms_products',
-      params: computed(() => {
-        if(getFieldsValue() != undefined){
-          return ({ ownerId:getFieldsValue().ownerId});
-        }
-        }),
-      fieldConfig: [
-        { source: 'id', target: 'productId' },
-        { source: 'product_name', target: 'productName' },
-      ],
+      options: productOptions,
+      validateRules: [{ required: true, message: '请选择商品' }],
     },
     {
       title: '商品名称',
@@ -435,12 +476,44 @@ export function createWmsStockInOrderItemsJVxeColumns(getFieldsValue) {
       disabled:true,
     },
     {
+      title: '批次号',
+      key: 'batchNumber',
+      type: JVxeTypes.input,
+      width: 150,
+      props: { maxlength: 32 },
+      validateRules: [{ required: true, message: '请输入批次号' }],
+    },
+    {
+      title: '生产日期',
+      key: 'productionDate',
+      type: JVxeTypes.date,
+      width: 145,
+      validateRules: [{ required: true, message: '请选择生产日期' }],
+    },
+    {
+      title: '到期日期',
+      key: 'expiryDate',
+      type: JVxeTypes.date,
+      width: 145,
+      validateRules: [{ required: true, message: '请选择到期日期' }],
+    },
+    {
       title: '采购数量',
       key: 'expectedQuantity',
       type: JVxeTypes.inputNumber,
       width:"200px",
       placeholder: '请输入${title}',
       defaultValue:'',
+      validateRules: [
+        {
+          required: true,
+          message: '请输入采购数量',
+          validator: ({ cellValue }: { cellValue: unknown }) => {
+            const error = getInboundQuantityError(cellValue);
+            if (error) return new Error(error);
+          },
+        },
+      ],
     },
     {
       title: '备注',

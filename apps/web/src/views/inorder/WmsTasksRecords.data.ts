@@ -3,6 +3,7 @@ import {FormSchema} from '/@/components/Table';
 import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import { getWeekMonthQuarterYear } from '/@/utils';
+import { receivedBatchFields } from './WmsTasks.data';
 //列表数据
 export const putaway_list_columns: BasicColumn[] = [
    {
@@ -42,6 +43,12 @@ export const putaway_list_columns: BasicColumn[] = [
      align:"center",
      dataIndex: 'batchNumber'
    },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
+  {
+    title: '到期日期',
+    align: 'center',
+    dataIndex: 'expiryDate',
+  },
   // {
   //   title: '库存属性',
   //   align:"center",
@@ -167,6 +174,12 @@ export const receive_list_columns: BasicColumn[] = [
      align:"center",
      dataIndex: 'batchNumber'
     },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
+  {
+    title: '到期日期',
+    align: 'center',
+    dataIndex: 'expiryDate',
+  },
    // {
    //  title: '容器编码',
    //  align:"center",
@@ -247,6 +260,7 @@ export const searchPutawayTaskFormSchema: FormSchema[] = [
 ];
 //表单数据
 export const formSchema: FormSchema[] = [
+  ...receivedBatchFields,
   {
     label: '任务号',
     field: 'taskNumber',

@@ -5,6 +5,7 @@ const { createConfirm } = useMessage();
 
 enum Api {
   list = '/inventory/wmsInventory/list',
+  detail = '/inventory/wmsInventory/queryById',
   save='/inventory/wmsInventory/add',
   edit='/inventory/wmsInventory/edit',
   deleteOne = '/inventory/wmsInventory/delete',
@@ -27,6 +28,9 @@ export const getImportUrl = Api.importExcel;
  */
 export const list = (params) =>
   defHttp.get({url: Api.list, params});
+
+export const detail = (id: string) =>
+  defHttp.get({ url: Api.detail, params: { id } });
 
 /**
  * 删除单个

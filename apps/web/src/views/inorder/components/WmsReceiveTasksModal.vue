@@ -5,13 +5,19 @@
 </template>
 
 <script lang="ts" setup>
+    import type { ValidateErrorEntity } from 'ant-design-vue/es/form/interface';
     import {ref, computed, unref} from 'vue';
     import {BasicModal, useModalInner} from '/@/components/Modal';
     import {BasicForm, useForm} from '/@/components/Form/index';
     import {receiveFormSchema} from '../WmsTasks.data';
     import {receive} from '../WmsTasks.api';
+    import { useMessage } from '/@/hooks/web/useMessage';
+    import { createInboundActionSubmitter, InboundBusinessError } from '../inboundRequest';
+    import { getReceiptDateError } from '../inboundValidation';
     // Emits声明
     const emit = defineEmits(['register','success']);
+    const { createMessage } = useMessage();
+    const submitAction = createInboundActionSubmitter(receive);
     const isUpdate = ref(true);
     const isDetail = ref(false);
     //表单配置
@@ -38,26 +44,34 @@
     });
     //设置标题
     const title = computed(() => '收货');
+    let submitting = false;
     //表单提交事件
-    async function handleSubmit(v) {
+    async function handleSubmit() {
+        if (submitting) return;
+        submitting = true;
         try {
-            let values = await validate();
             setModalProps({confirmLoading: true});
-            //提交表单
-            await receive(values);
+            const values = await validate();
+            const dateError = getReceiptDateError(values.productionDate, values.expiryDate);
+            if (dateError) throw new InboundBusinessError(dateError);
+            await submitAction({
+                id: values.id,
+                execQuantity: Number(values.execQuantity),
+                targetLocationCode: values.targetLocationCode,
+            });
+            createMessage.success('收货成功');
             //关闭弹窗
             closeModal();
             //刷新列表
             emit('success');
-        } catch ({ errorFields }) {
-           if (errorFields) {
-             const firstField = errorFields[0];
-             if (firstField) {
-               scrollToField(firstField.name, { behavior: 'smooth', block: 'center' });
-             }
-           }
-           return Promise.reject(errorFields);
+        } catch (error) {
+            if (error instanceof InboundBusinessError) createMessage.error(error.message);
+            const firstField = (error as ValidateErrorEntity | undefined)?.errorFields?.[0];
+            if (firstField) {
+                scrollToField(firstField.name, { behavior: 'smooth', block: 'center' });
+            }
         } finally {
+            submitting = false;
             setModalProps({confirmLoading: false});
         }
     }

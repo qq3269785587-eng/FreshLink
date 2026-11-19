@@ -7,19 +7,6 @@
 <!--          <a-button type="primary" v-auth="'inventory:wms_inventory:add'" @click="handleAdd" preIcon="ant-design:plus-outlined"> 新增</a-button>-->
           <a-button  type="primary" v-auth="'inventory:wms_inventory:exportXls'" preIcon="ant-design:export-outlined" @click="onExportXls"> 导出</a-button>
 <!--          <j-upload-button type="primary" v-auth="'inventory:wms_inventory:importExcel'" preIcon="ant-design:import-outlined" @click="onImportXls">导入</j-upload-button>-->
-          <a-dropdown v-if="selectedRowKeys.length > 0">
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item key="1" @click="batchHandleDelete">
-                    <Icon icon="ant-design:delete-outlined"></Icon>
-                    删除
-                  </a-menu-item>
-                </a-menu>
-              </template>
-              <a-button v-auth="'inventory:wms_inventory:deleteBatch'">批量操作
-                <Icon icon="mdi:chevron-down"></Icon>
-              </a-button>
-        </a-dropdown>
         <!-- 高级查询 -->
         <super-query :config="superQueryConfig" @search="handleSuperQuery" />
       </template>
@@ -43,7 +30,7 @@
   import { useListPage } from '/@/hooks/system/useListPage'
   import WmsInventoryModal from './components/WmsInventoryModal.vue'
   import {columns, searchFormSchema, superQuerySchema} from './WmsInventory.data';
-  import {list, deleteOne, batchDelete, getImportUrl,getExportUrl} from './WmsInventory.api';
+  import {list, deleteOne, getImportUrl,getExportUrl} from './WmsInventory.api';
   import { downloadFile } from '/@/utils/common/renderUtils';
   import { useUserStore } from '/@/store/modules/user';
   const queryParam = reactive<any>({});
@@ -54,10 +41,11 @@
   //注册table数据
   const { prefixCls,tableContext,onExportXls,onImportXls } = useListPage({
       tableProps:{
-           title: '库存表',
+           title: '库存与效期',
            api: list,
            columns,
            canResize:false,
+           scroll: { x: 'max-content' },
            formConfig: {
               //labelWidth: 120,
               schemas: searchFormSchema,
@@ -135,12 +123,6 @@
     */
   async function handleDelete(record) {
      await deleteOne({id: record.id}, handleSuccess);
-   }
-   /**
-    * 批量删除事件
-    */
-  async function batchHandleDelete() {
-     await batchDelete({ids: selectedRowKeys.value}, handleSuccess);
    }
    /**
     * 成功回调

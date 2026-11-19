@@ -3,7 +3,28 @@ import {FormSchema} from '/@/components/Table';
 import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import { getWeekMonthQuarterYear } from '/@/utils';
-import { list, listPutawayTargets } from '@/views/warehouse/WmsStorageLocations.api';
+import { listFormalPutawayTargets, listReceivingTargets } from './WmsTasks.api';
+import { inboundSupplierField } from './WmsStockInOrders.data';
+import { getInboundQuantityError } from './inboundValidation';
+
+export const receivedBatchFields: FormSchema[] = [
+  inboundSupplierField(true),
+  { label: '批次号', field: 'batchNumber', component: 'Input', componentProps: { disabled: true } },
+  { label: '生产日期', field: 'productionDate', component: 'Input', componentProps: { disabled: true } },
+  { label: '到期日期', field: 'expiryDate', component: 'Input', componentProps: { disabled: true } },
+];
+
+function actionQuantityRules({ model }: { model: Recordable }) {
+  return [
+    {
+      required: true,
+      validator: async (_rule: unknown, value: unknown) => {
+        const error = getInboundQuantityError(value, model.quantity, model.completedQuantity);
+        if (error) throw new Error(error);
+      },
+    },
+  ];
+}
 //列表数据
 export const putawayColumns: BasicColumn[] = [
    {
@@ -88,10 +109,11 @@ export const putawayColumns: BasicColumn[] = [
    * 保质期
    */
   {
-    title: '保质期',
+    title: '到期日期',
     align:"center",
     dataIndex: 'expiryDate',
    },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
    // {
    //  title: '目的容器编码',
    //  align:"center",
@@ -130,6 +152,9 @@ export const putawayColumns: BasicColumn[] = [
 ];
 //收货任务列表
 export const receiveColumns: BasicColumn[] = [
+  { title: '批次号', align: 'center', dataIndex: 'batchNumber' },
+  { title: '生产日期', align: 'center', dataIndex: 'productionDate' },
+  { title: '到期日期', align: 'center', dataIndex: 'expiryDate' },
   {
     title: '任务号',
     align:"center",
@@ -351,7 +376,7 @@ export const putawayFormSchema: FormSchema[] = [
     componentProps: ({ formModel }) => {
       return {
         key: formModel.targetWarehouseId ?? 'no-warehouse',
-        api: listPutawayTargets,
+        api: listFormalPutawayTargets,
         params: { warehouseId: formModel.targetWarehouseId },
         immediate: false,
         labelField: 'locationCode',
@@ -410,18 +435,7 @@ export const putawayFormSchema: FormSchema[] = [
   //     disabled: true,
   //   },
   // },
-  /**
-   * 批次号
-   */
-  {
-    label: '批次号',
-    field: 'batchNumber',
-    component: 'Input',
-    //不可编辑
-    componentProps: {
-      disabled: true,
-    },
-  },
+  ...receivedBatchFields,
   // {
   //   label: '目的容器',
   //   field: 'targetContainerCode',
@@ -447,11 +461,7 @@ export const putawayFormSchema: FormSchema[] = [
     label: '本次上架数量',
     field: 'execQuantity',
     component: 'InputNumber',
-    dynamicRules: ({model,schema}) => {
-      return [
-        { required: true, message: '请输入目的储位!'},
-      ];
-    },
+    dynamicRules: actionQuantityRules,
   },
   // {
   //   label: '执行人',
@@ -610,25 +620,9 @@ export const receiveFormSchema: FormSchema[] = [
     label: '收货数量',
     field: 'execQuantity',
     component: 'InputNumber',
-    dynamicRules: ({model,schema}) => {
-      return [
-        { required: true, message: '请输入收货数量!'},
-      ];
-    },
+    dynamicRules: actionQuantityRules,
   },
-  {
-    label: '库存属性',
-    field: 'inventoryAttribute',
-    component: 'JDictSelectTag',
-    componentProps:{
-      dictCode:"inventory_attribute",
-    },
-    dynamicRules: ({model,schema}) => {
-      return [
-        { required: true, message: '请输入库存属性!'},
-      ];
-    },
-  },
+  ...receivedBatchFields,
 
   {
     label: '所属仓库',
@@ -648,11 +642,10 @@ export const receiveFormSchema: FormSchema[] = [
     label: '储位编码',
     field: 'targetLocationCode',
     component: 'ApiSelect',
-    componentProps: ({ formModel, formActionType }) => {
+    componentProps: ({ formModel }) => {
       return {
-        api: list,
-        params:{warehouseId: formModel.targetWarehouseId},
-        resultField: 'records',
+        api: listReceivingTargets,
+        params: { warehouseId: formModel.targetWarehouseId },
         labelField: 'locationCode',
         valueField: 'locationCode',
       }
@@ -694,34 +687,6 @@ export const receiveFormSchema: FormSchema[] = [
   //   field: 'targetContainerCode',
   //   component: 'Input',
   // },
-  {
-    label: '批次号',
-    field: 'batchNumber',
-    component: 'Input',
-  },
-  {
-    label: '收货日期',
-    field: 'receivingDate',
-    component: 'DatePicker',
-    componentProps: {
-      showTime: true,
-      valueFormat: 'YYYY-MM-DD HH:mm:ss'
-    },
-    dynamicRules: ({model,schema}) => {
-      return [
-        { required: true, message: '请输入收货日期!'},
-      ];
-    },
-  },
-
-  {
-    label: '保质期到期日',
-    field: 'expiryDate',
-    component: 'DatePicker',
-    componentProps: {
-      valueFormat: 'YYYY-MM-DD'
-    },
-  },
   // {
   //   label: '执行时间',
   //   field: 'operationTime',

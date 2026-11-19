@@ -9,7 +9,8 @@
     import {BasicModal, useModalInner} from '/@/components/Modal';
     import {BasicForm, useForm} from '/@/components/Form/index';
     import {formSchema} from '../WmsInventory.data';
-    import {saveOrUpdate} from '../WmsInventory.api';
+    import { detail, saveOrUpdate } from '../WmsInventory.api';
+    import { getExpiryPresentation, getInventoryBlockReason } from '../inventoryExpiry';
     // Emits声明
     const emit = defineEmits(['register','success']);
     const isUpdate = ref(true);
@@ -19,7 +20,7 @@
         labelWidth: 150,
         schemas: formSchema,
         showActionButtonGroup: false,
-        baseColProps: {span: 24}
+        baseColProps: {span: 12}
     });
     //表单赋值
     const [registerModal, {setModalProps, closeModal}] = useModalInner(async (data) => {
@@ -29,10 +30,17 @@
         isUpdate.value = !!data?.isUpdate;
         isDetail.value = !!data?.showFooter;
         if (unref(isUpdate)) {
-            //表单赋值
-            await setFieldsValue({
-                ...data.record,
-            });
+            setModalProps({ loading: true });
+            try {
+                const record = data?.showFooter ? data.record : await detail(data.record.id);
+                await setFieldsValue({
+                    ...record,
+                    expiryStatusLabel: getExpiryPresentation(record.expiryStatus).text,
+                    inventoryBlockReason: getInventoryBlockReason(record),
+                });
+            } finally {
+                setModalProps({ loading: false });
+            }
         }
         // 隐藏底部时禁用整个表单
        setProps({ disabled: !data?.showFooter })

@@ -45,7 +45,6 @@
     <!-- 表单区域 -->
     <WmsStockInOrdersPrintModal @register="registerPrintModal" @success="handleSuccess"></WmsStockInOrdersPrintModal>
     <WmsStockInOrdersModal @register="registerModal" @success="handleSuccess"></WmsStockInOrdersModal>
-    <WmsStockInOrdersAddModal @register="registerAddModal" @success="handleSuccess"></WmsStockInOrdersAddModal>
     <WmsStockInOrdersAuditModal @register="registerAuditModal" @success="handleSuccess"></WmsStockInOrdersAuditModal>
     <WmsReceiveTaskAddModal @register="registerReceiveTaskAddModal" @success="handleSuccess"></WmsReceiveTaskAddModal>
   </div>
@@ -57,7 +56,6 @@
   import { useListPage } from '/@/hooks/system/useListPage'
   import {useModal} from '/@/components/Modal';
   import WmsStockInOrdersModal from './components/WmsStockInOrdersModal.vue'
-  import WmsStockInOrdersAddModal from './components/WmsStockInOrdersAddModal.vue'
   import WmsStockInOrdersPrintModal from './components/WmsStockInOrdersPrintModal.vue'
   import WmsStockInOrdersAuditModal from './components/WmsStockInOrdersAuditModal.vue'
   import WmsReceiveTaskAddModal from './components/WmsReceiveTaskAddModal.vue'
@@ -85,7 +83,6 @@
   const [registerModal, {openModal}] = useModal();
   const [registerPrintModal, {openModal:openPrintModal}] = useModal();
   const [registerAuditModal, {openModal:openAuditModal}] = useModal();
-  const [registerAddModal, {openModal:openAddModal}] = useModal();
   const [registerReceiveTaskAddModal, {openModal:openReceiveTaskAddModal}] = useModal();
   const userStore = useUserStore();
    //注册table数据
@@ -152,7 +149,7 @@
     * 新增事件
     */
   function handleAdd() {
-     openAddModal(true, {
+     openModal(true, {
        isUpdate: false,
        showFooter: true,
      });
@@ -298,11 +295,13 @@
          {
            label: '编辑',
            onClick: handleEdit.bind(null, record),
-           auth: 'inorder:wms_stock_in_orders:edit'
+           auth: 'inorder:wms_stock_in_orders:edit',
+           ifShow: ['INITIAL', 'REJECTED'].includes(record.status),
          },
          {
            label: '提交审核',
            onClick: handleSubmitAudit.bind(null, record),
+           ifShow: ['INITIAL', 'REJECTED'].includes(record.status),
          },
        ]
    }
@@ -327,6 +326,8 @@
       },{
         label: '审核',
         onClick: handleAudit.bind(null, record),
+        auth: 'inorder:wms_stock_in_orders:audit',
+        ifShow: record.status === 'SUBMITTED',
       }
     ]
   }
