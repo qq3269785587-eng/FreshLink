@@ -43,7 +43,7 @@
   import { useListPage } from '/@/hooks/system/useListPage'
   import WmsStorageZonesModal from './components/WmsStorageZonesModal.vue'
   import {columns, searchFormSchema, superQuerySchema} from './WmsStorageZones.data';
-  import {list, deleteOne, batchDelete, getImportUrl,getExportUrl} from './WmsStorageZones.api';
+  import {list, deleteOne, batchDelete, getImportUrl,getExportUrl, disableZone} from './WmsStorageZones.api';
   import { downloadFile } from '/@/utils/common/renderUtils';
   import { useUserStore } from '/@/store/modules/user';
   const queryParam = reactive<any>({});
@@ -157,7 +157,19 @@
            label: '编辑',
            onClick: handleEdit.bind(null, record),
            auth: 'warehouse:wms_storage_zones:edit'
-         }
+         },
+         {
+           label: '禁用',
+           auth: 'warehouse:wms_storage_zones:edit',
+           ifShow: record.status === 'ACTIVE',
+           popConfirm: {
+             title: '确认禁用该库区？禁用后不能用于新上架。',
+             confirm: async () => {
+               await disableZone(record.id);
+               handleSuccess();
+             },
+           },
+         },
        ]
    }
      /**

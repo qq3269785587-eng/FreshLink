@@ -3,7 +3,7 @@ import {FormSchema} from '/@/components/Table';
 import { rules} from '/@/utils/helper/validator';
 import { render } from '/@/utils/common/renderUtils';
 import { getWeekMonthQuarterYear } from '/@/utils';
-import {list} from "@/views/warehouse/WmsStorageLocations.api";
+import { list, listPutawayTargets } from '@/views/warehouse/WmsStorageLocations.api';
 //列表数据
 export const putawayColumns: BasicColumn[] = [
    {
@@ -348,11 +348,12 @@ export const putawayFormSchema: FormSchema[] = [
     label: '目的储位',
     field: 'targetLocationCode',
     component: 'ApiSelect',
-    componentProps: ({ formModel, formActionType }) => {
+    componentProps: ({ formModel }) => {
       return {
-        api: list,
-        params:{warehouseId: formModel.targetWarehouseId},
-        resultField: 'records',
+        key: formModel.targetWarehouseId ?? 'no-warehouse',
+        api: listPutawayTargets,
+        params: { warehouseId: formModel.targetWarehouseId },
+        immediate: false,
         labelField: 'locationCode',
         valueField: 'locationCode',
       }
