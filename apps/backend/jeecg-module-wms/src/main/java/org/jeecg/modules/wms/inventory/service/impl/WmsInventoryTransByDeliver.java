@@ -12,6 +12,7 @@ import org.jeecg.modules.wms.inventory.mapper.WmsInventoryTransMapper;
 import org.jeecg.modules.wms.inventory.service.IWmsInventoryService;
 import org.jeecg.modules.wms.inventory.service.IWmsInventoryTransService;
 import org.jeecg.modules.wms.inventory.vo.WmsInventoryTransParam;
+import org.jeecg.common.exception.JeecgBootException;
 import org.jeecg.modules.wms.warehouse.entity.WmsStorageLocations;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageLocationsService;
 import org.jeecg.modules.wms.warehouse.service.IWmsStorageZonesService;
@@ -41,6 +42,9 @@ public class WmsInventoryTransByDeliver extends ServiceImpl<WmsInventoryTransMap
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transfer(WmsInventoryTransParam inventoryTransParam) {
+        if (StringUtils.startsWith(inventoryTransParam.getBatchNumber(), "FL:")) {
+            throw new JeecgBootException("生鲜入库批次不能通过旧发货任务扣减");
+        }
         //非空判断，商品id、原始储位编码、目标储位编码、数量不能为空
         if (StringUtils.isEmpty(inventoryTransParam.getProductId())
                 || StringUtils.isEmpty(inventoryTransParam.getSourceLocationCode())
@@ -71,6 +75,9 @@ public class WmsInventoryTransByDeliver extends ServiceImpl<WmsInventoryTransMap
         if (wmsInventorySource == null) {
             //抛出异常
             throw new RuntimeException("源储位编码或商品id在库存中不存在");
+        }
+        if (StringUtils.startsWith(wmsInventorySource.getBatchNumber(), "FL:")) {
+            throw new JeecgBootException("生鲜入库批次不能通过旧发货任务扣减");
         }
         LambdaUpdateWrapper<WmsInventory> wmsInventoryLambdaUpdateWrapper = new LambdaUpdateWrapper<WmsInventory>()
                 .eq(WmsInventory::getId, wmsInventorySource.getId())

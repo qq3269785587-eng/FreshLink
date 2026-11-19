@@ -237,4 +237,8 @@ public class WmsInventory implements Serializable {
 
     @TableField(exist = false)
     private String locationStorageType;
+
+    @TableField(exist = false)
+    private String locationSellable;
+
 }
